@@ -1079,6 +1079,207 @@ make_deinstall_list() {
 	rm -f "${seen}/*"
 }
 #
+# remove_from_file
+remove_from_file( ) {
+	edit="${1}"
+	pattern="${2}"
+	if test ! -e "${edit}"
+	then
+		return
+	fi
+	if test `fgrep -x "${pattern}" "${edit}" | wc -l` -ge 1
+	then
+		echo "remove: ${pattern} from ${edit}"
+		cp -p "${edit}" "${edit}.bak"
+		fgrep -v -x "${pattern}" "${edit}.bak" > "${edit}"
+		rm -f "${edit}.bak"
+	fi
+}
+#
+# add_to_file
+add_to_file( ) {
+	edit="${1}"
+	pattern="${2}"
+	if test -e "${edit}"
+	then
+		if test `fgrep -x "${pattern}" "${edit}" | wc -l` -gt 1
+		then
+			remove_from_file "${edit}" "${pattern}"
+		fi
+	else
+		touch "${edit}"
+	fi
+	if ! fgrep -q -x "${pattern}" "${edit}"
+	then
+		echo "register: ${pattern} in ${edit}"
+		echo "${pattern}" >> "${edit}"
+	fi
+}
+#
+# replace-package package
+replace_package() {
+	tmp1="/tmp/replace-package.1"
+	tmp2="/tmp/replace-package.2"
+	tmp3="/tmp/replace-package.3"
+	tmp4="/tmp/replace-package.4"
+	oldpkg="${1}"
+	if test ! -d "${pkg_dbdir}/${oldpkg}"
+	then
+		echo "${oldpkg}: package does not exist"
+		return
+	fi
+	if test ! -s "${pkg_dbdir}/${oldpkg}/+CONTENTS"
+	then
+		echo "${oldpkg}: +CONTENTS does not exist"
+		return
+	fi
+	if test -d "${obsolete}/${oldpkg}"
+	then
+		echo "${oldpkg}: package does exist as obsolete"
+		return
+	fi
+	origin=`pkg_info -q -o "${oldpkg}"`
+	if test "${origin}" = ""
+	then
+		echo "${oldpkg}: missing origin"
+		return
+	fi
+	installed=`pkg_info -q -O "${origin}" | wc -l`
+        if test "${installed}" -ne 1
+        then
+		echo "${oldpkg}: more than one package from ${origin} found"
+		return
+        fi
+	depdir="${portsdir}/${origin}"
+	if test ! -d "${depdir}"
+        then
+		echo "${oldpkg}: missing ports dir => ${depdir}"
+		return
+	fi
+	addpkg=`cd "${depdir}" && make -V PKGFILE`
+	if test "${addpkg}" = ""
+        then
+		echo "${oldpkg}: missing or defunt Makefile in dir => ${depdir}"
+		return
+	fi
+	newpkg=`cd "${depdir}" && make -V PKGNAME`
+	if test "${newpkg}" = ""
+        then
+		echo "${oldpkg}: missing or defunt Makefile in dir => ${depdir}"
+		return
+	fi
+	if test ! -f "${addpkg}"
+        then
+		echo "${oldpkg}: no package found: ${addpkg}"
+		return
+	fi
+	oldcontents="${obsolete}/${oldpkg}/+CONTENTS"
+	echo "${oldpkg}: updating to: ${newpkg}"
+	echo \
+	mv -i "${pkg_dbdir}/${oldpkg}" "${obsolete}/${oldpkg}"
+	mv -i "${pkg_dbdir}/${oldpkg}" "${obsolete}/${oldpkg}"
+	echo \
+	pkg_add "${addpkg}"
+	pkg_add "${addpkg}"
+	newcontents="${pkg_dbdir}/${newpkg}/+CONTENTS"
+	if test ! -s "${newcontents}"
+	then
+		echo "${newpkg}: missing content file does not exist"
+		echo \
+		mv -i "${obsolete}/${oldpkg}" "${pkg_dbdir}/${oldpkg}"
+		mv -i "${obsolete}/${oldpkg}" "${pkg_dbdir}/${oldpkg}"
+		continue
+	fi
+        if test "${newpkg}" = "${pkgall}/${i}"
+        then
+		echo "${oldpkg}: port has same version"
+		fgrep -H -x "${oldpkg}" "${pkg_dbdir}"/*/+REQUIRED_BY |
+		sort > ${tmp3}
+		sort -u ${tmp3} > ${tmp4}
+		comm -23 ${tmp3} ${tmp4}
+	else
+		if test -e "${oldcontents}"
+		then
+			egrep "^@pkgdep " "${oldcontents}" |
+			while read dummy1 depend dummy2
+			do
+				edit="${pkg_dbdir}/${depend}/+REQUIRED_BY"
+				if test -f "${edit}"
+				then
+echo \
+					remove_from_file "${edit}" "${oldpkg}"
+				fi
+			done
+		fi
+		fgrep -H -x "${oldpkg}" "${pkg_dbdir}"/*/+REQUIRED_BY |
+		while read fgrep
+		do
+			edit="${grep%%:*}"
+			if test -f "${edit}"
+			then
+echo \
+				remove_from_file "${edit}" "${oldpkg}"
+echo \
+				add_to_file "${edit}" "${newpkg}"
+			fi
+		done
+	fi
+	#
+	oldrequired="${obsolete}/${oldpkg}/+REQUIRED_BY"
+	if test -s "${oldrequired}"
+	then
+		cat "${oldrequired}" |
+		while read fixme
+		do
+			if test "${oldpkg}" = "${newpkg}"
+			then
+				edit="${pkg_dbdir}/${newpkg}/+REQUIRED_BY"
+				if test ! -e "${edit}"
+				then
+					touch "${edit}"
+				fi
+				if ! fgrep -q -x "${fixme}" "${edit}"
+				then
+					echo "register: ${fixme} in ${edit}"
+					echo "${fixme}" >> "${edit}"
+				fi
+			else
+				edit="${pkg_dbdir}/${fixme}/+CONTENTS"
+				if test -e "${edit}"
+				then
+					if fgrep -q -x "@pkgdep ${oldpkg}" "${edit}"
+					then
+						echo "fixing: ${fixme} ${oldpkg} => ${newpkg}"
+						cp -p "${edit}" "${edit}.bak"
+						sed -e "s=@pkgdep ${oldpkg}$=@pkgdep ${newpkg}=" "${edit}.bak" > "${edit}"
+						rm -f "${edit}.bak"
+					fi
+				fi
+				edit="${pkg_dbdir}/${newpkg}/+REQUIRED_BY"
+				if test -e "${pkg_dbdir}/${fixme}/+CONTENTS"
+				then
+					add_to_file "${edit}" "${fixme}"
+				fi
+			fi
+		done
+	fi
+	#
+	obsoletefiles=`
+	egrep -v "^@" "${oldcontents}" | sort > "${tmp1}"
+	egrep -v "^@" "${newcontents}" | sort > "${tmp2}"
+	comm -23 "${tmp1}" "${tmp2}"`
+	if test "${obsoletefiles}" = ""
+	then
+		echo \
+		rm -rf "${obsolete}/${oldpkg}"
+#		rm -rf "${obsolete}/${oldpkg}"
+	else
+		echo "check for obsolete files:"
+		echo "${obsoletefiles}"
+	fi
+	rm -f "${tmp1}" "${tmp2}" "${tmp3}" "${tmp4}"
+}
+#
 # inform usage
 usage() {
 	echo "Usage:" >&2
@@ -1100,6 +1301,7 @@ usage() {
 	echo "    ${0##*/}: show-missing-reinstall" >&2
 	echo "    ${0##*/}: show-missing-installed" >&2
 	echo "    ${0##*/}: reinstall" >&2
+	echo "    ${0##*/}: replace-package [port] [...]" >&2
 	echo "    ${0##*/}: clean" >&2
 	echo "    ${0##*/}: check-installed-ports [port]" >&2
 	echo "    ${0##*/}: cvsup" >&2
@@ -1367,6 +1569,18 @@ reinstall)
 	exec /bin/sh "${0}" install-packages "${deinstall}"
 	echo "error in path: ${0}" >&2
 	exit 64
+	;;
+replace-package)
+	obsolete="${pkg_dbdir}/../OBSOLETE"
+	if test ! -d "${obsolete}"
+	then
+		mkdir "${obsolete}"
+	fi
+	shift
+	for i in "${@}"
+	do
+		replace_package "${i}"
+	done
 	;;
 clean)
 	rm -f "${cache}" "${deinstall}" "${easyupdate}"
