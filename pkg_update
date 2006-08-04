@@ -116,6 +116,237 @@ plist_sub() {
 }' >> "${subs}"
 }
 
+# check dependencies and decides if a ports needs to be rebuild
+# Usage: port_uptodate show
+# Usage: port_uptodate make
+port_uptodate() {
+	tmpupdated="/tmp/port-updated.$$"
+	tmpfailed="/tmp/port-failed.$$"
+
+	case "$1" in
+	show)
+		rm -f "${logdir}/show"*
+		;;
+	esac
+	#
+	case "$1" in
+	show*|make*)
+		base="${portsdir}/$(make -V PKGORIGIN)"
+		base1="$(pwd)"
+		base2="$(cd ${base} && pwd)"
+		if test ! "${base1}" = "${base2}"
+		then
+			echo "# WARNING: PKGORIGIN=${base2} does not match ${base1}"
+			echo "# WARNING: using ${base}"
+		fi
+		echo "## ${base}: port_uptodate $1 "
+		bname=`make package-name`
+		dir=`make -V PORTDIRNAME`
+		pkgfile=`make -V PKGFILE`
+		name="${bname}"
+		for=""
+		found=""
+		lastpkgfile=""
+		rm -f "${tmpupdated}" "${tmpfailed}"
+		while test "${found}" = ""
+		do
+			if test -e ${pkg_dbdir}/${name}/+CONTENTS
+			then
+				echo "#installed:	${name} from ${dir}"
+				found="1"
+				break
+			fi
+			if test -e ${pkgfile}
+			then
+				echo "pkg_add ${pkgfile}"
+				lastpkgfile="${pkgfile}"
+				found="1"
+				break
+			fi
+			#
+			break
+		done
+		;;
+	*)
+		echo "port_uptodate: bad arguments" >&2
+		return 64
+		;;
+	esac
+	#
+	# creates dependency
+	make checksum >&2
+	#
+	if test ! -e "${depends}"
+	then
+		# create empy list
+		touch "${depends}"
+	fi
+	#
+	for fulldir in `
+	make all-depends-list |
+	sed -f "${depends}"`
+	do
+		dir="${fulldir##${portsdir}/}"
+		dir="${dir##${localdir}/}"
+		if test "${dir}" = ""
+		then
+			continue
+		fi
+		log=`echo "${dir}" | sed -e 's=/=,=g'`
+		name=`cd ${fulldir} && make package-name`
+		if test -e ${pkg_dbdir}/${name}/+CONTENTS
+		then
+			echo "#installed:	${name} from ${dir}${for}"
+			continue
+		fi
+		pkgfile=`cd ${fulldir} && make -V PKGFILE`
+		if test -e ${pkgfile}
+		then
+			case "$1" in
+			xshow*)
+				if test ! -f "${logdir}/show,${log}"
+				then
+					# check dependend package is ok!
+					( cd ${fulldir} && port_uptodate $1+ )
+					touch "${logdir}/show,${log}"
+				fi
+				;;
+			xmake*)
+				if test ! -f "${logdir}/check,${log}"
+				then
+					# check dependend package is ok!
+					( cd ${fulldir} && port_uptodate $1+ )
+					touch "${logdir}/check,${log}"
+					if test -e ${pkg_dbdir}/${name}/+CONTENTS
+					then
+						echo "#installed:	${name} from ${dir}${for}"
+						continue
+					fi
+				fi
+				;;
+			esac
+
+			if test "${lastpkgfile}" != ""
+			then
+				if test "${pkgfile}" -nt "${lastpkgfile}"
+				then
+					echo "# dependend package newer: ${pkgfile} ${lastpkgfile}"
+					echo "# dependend package newer: ${pkgfile} ${lastpkgfile}" >> ${tmpupdated}
+				fi
+			fi
+			echo "#existing package:	${name} from ${dir}${for}"
+			echo "pkg_add ${pkgfile}"
+			case "$1" in
+			make*)
+				pkg_add ${pkgfile}
+				if test -e ${pkg_dbdir}/${name}/+CONTENTS
+				then
+					continue
+				fi
+				echo "pkg_add ${pkgfile} failed, no ${name}!"
+				echo "=== dependend package failed to add: ${pkgfile} ${name}" >&2
+				echo "=== dependend package failed to add: ${pkgfile} ${name}" >> ${tmpfailed}
+				echo "=== dependend package failed to add: ${pkgfile} ${name}" >> ${logdir}/err,${log}
+				break
+				;;
+			esac
+			continue
+		fi
+		echo "# missing package: ${name} from ${dir}"
+		echo "# missing package: ${name} from ${dir}" >> ${tmpupdated}
+		case "$1" in
+		make*)
+			echo "cd ${fulldir} && port_uptodate $1+"
+			( cd ${fulldir} && port_uptodate $1+ )
+			if test -e ${pkg_dbdir}/${name}/+CONTENTS
+			then
+				continue
+			fi
+			echo "=== package ${name} error dependency" >&2
+			echo "=== package ${name} error dependency" >> ${tmpfailed}
+			echo "=== package ${name} error dependency" >> ${logdir}/err,${log}
+			break
+			;;
+		esac
+	done
+	if test -e "${tmpfailed}"
+	then
+		fulldir=`pwd`
+		dir="${fulldir##${portsdir}/}"
+		dir="${dir##${localdir}/}"
+		echo "=====================================" >&2
+		echo "=== package ${name} missing dependency" >&2
+		cat ${tmpfailed} >&2
+		echo "=====================================" >&2
+		if test "${dir}" != ""
+		then
+			log=`echo "${dir}" | sed -e 's=/=,=g'`
+			cat ${tmpfailed} >> ${logdir}/err,${log}
+		fi
+		rm -f "${tmpfailed}" "${tmpupdated}"
+		return 1
+	fi
+	if test "${found}" = "" -o -e "${tmpupdated}"
+	then
+		rm -f "${tmpupdated}"
+		dir="${base##${portsdir}/}"
+		dir="${dir##${localdir}/}"
+		log=`echo "${dir}" | sed -e 's=/=,=g'`
+		echo "cd ${base} && make package >> ${logdir}/err,${log} 2>&1"
+		case "$1" in
+		make*)
+			( cd ${base} && make package </dev/null >> ${logdir}/err,${log} 2>&1 )
+			if test -e "${pkg_dbdir}/${name}/+CONTENTS"
+			then
+				pkgfile=`cd ${base} && make -V PKGFILE`
+				if test -e "${pkgfile}"
+				then
+					mv -f "${logdir}/err,${log}" "${logdir}/build,${log}"
+					( cd ${base} && make clean NOCLEANDEPENDS=yes )
+				else
+					echo "=====================================" >&2
+					echo "=== package ${name} was not build" >&2
+					echo "=====================================" >&2
+					echo "=== package ${name} was not build" \
+						>> ${logdir}/err,${log}
+					return 2
+				fi
+			else
+				echo "=====================================" >&2
+				echo "=== package ${name} was not installed" >&2
+				echo "=====================================" >&2
+				echo "=== package ${name} was not installed" \
+					>> ${logdir}/err,${log}
+				return 2
+			fi
+			;;
+		show*)
+			echo "if test -e \"${pkg_dbdir}/${bname}/+CONTENTS\""
+			echo "then"
+			echo "	mv -f \"${logdir}/err,${log}\" \"${logdir}/build,${log}\""
+			echo "else"
+			echo "  echo \"=====================================\" >&2"
+			echo "  echo \"=== package ${name} was not build\" >&2"
+			echo "  echo \"=====================================\" >&2"
+			echo "  exit 2"
+			echo "fi"
+			return 1
+			;;
+		esac
+	else
+		rm -f "${tmpupdated}"
+		if test "${found}" = "1"
+		then
+			echo "#ok"
+			return 0
+		fi
+		echo "#not made"
+		return 1
+	fi
+}
+
+# make all packages to build and install a port
+# Usage: make_packages_in_dir directory
 make_packages_in_dir() {
 	dir="${1}"
 	if test "${dir}" = ""
@@ -140,16 +371,16 @@ make_packages_in_dir() {
 			rm -rf /usr/local/* /usr/X11R6/*
 		fi
 		
-		sh ${localdir}/port-uptodate.sh show > /tmp/check-package.out
+		port_uptodate show > /tmp/check-package.out
 		err="${?}"
 
 		case "${err}" in
 		1)
-			sh ${localdir}/port-uptodate.sh make
+			port_uptodate.sh make
 			err="${?}"
 			if test "${err}" != "0"
 			then
-				echo "${localdir}/port-uptodate.sh: aborted!"
+				echo "port_uptodate: aborted!"
 			fi
 
 			make deinstall
@@ -260,6 +491,7 @@ fi
 hostname=`hostname -s`
 localdir="/usr/ports/local/update"
 logdir="${PKG_UPDATE_LOGDIR:-${localdir}/log-${hostname}}"
+depends="${localdir}/data/depends.$(hostname)"
 #
 nowarn="COMMENT=0 CATEGORIES=0 PORTVERSION=0"
 portsdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PORTSDIR)"
@@ -288,7 +520,7 @@ make-packages)
 	shift
 	if test "${#}" -lt 1
 	then
-		exec /bin/sh $0 make-packages "${defaultdata}"
+		exec /bin/sh ${0} make-packages "${defaultdata}"
 		echo "error in path: ${0}" >&2
 		exit 64
 	fi
