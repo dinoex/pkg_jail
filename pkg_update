@@ -361,7 +361,7 @@ make_packages_in_dir() {
 	then
 		echo ""
 		echo "# checking: ${dir}"
-		cd "${dir}" || return 65
+		cd "${dir}" || return 69
 
 		wrkdir=`make -V WRKDIRPREFIX`
 		if ! test "${wrkdir}" = ""
@@ -501,7 +501,7 @@ add_packages_in_dir() {
 	fi
 
 	echo "# checking: ${dir}"
-	cd "${dir}" || return 65
+	cd "${dir}" || return 69
 
 	port_uptodate show > /tmp/check-package.out
 	err="${?}"
@@ -557,7 +557,7 @@ install_packages_in_dir() {
 	fi
 
 #	echo "# checking: ${dir}"
-	cd "${dir}" || return 65
+	cd "${dir}" || return 69
 	name=`make package-name`
 	if test -e ${pkg_dbdir}/${name}/+CONTENTS
 	then
@@ -579,13 +579,128 @@ install_packages_in_dir() {
 	echo "(cd ${dir} && make package)"
 }
 #
+# move outdated package int seperate dir for cleanup
+# usage: move_away package
+move_away() {
+	if test -d "${pkgold}"
+	then
+		# move it if the "Old" directory exists.
+		mv -f "${1}" "${pkgold}/${1}"
+	fi
+}
+#
+# check all packages in ${PACKAGES}/All/
+# Usage: clean_package_all
+clean_package_all() {
+	cd ${pkgall} || exit 69
+	for i in *
+	do
+		# ist this package up to date?
+		origin="$(pkg_info -q -o ${i})"
+		if test "${origin}" = ""
+		then
+			echo "${i}: missing origin"
+			move_away ${i}
+			continue
+		fi
+		depdir="${portsdir}/${origin}"
+		if test ! -d "${depdir}"
+		then
+			echo "${i}: missing ports dir => ${depdir}"
+			move_away ${i}
+			continue
+		fi
+		pnew="$(cd "${depdir}" && make -V PKGFILE)"
+		if test ! "${pnew}" = "${pkgall}/${i}"
+		then
+			if test ! "${pnew}" = ""
+			then
+				echo "${i}: is obsolete => ${pnew}"
+			else
+				echo "${i}: missing or defunt Makefile in dir => ${depdir}"
+			fi
+			move_away ${i}
+			continue
+		fi
+		ptarget="${pnew}"
+		#
+		# check each depended package
+		pkg_info -q -r ${i} |
+		while read dummy dep
+		do
+			pmade="${dep}${ext}"
+			if test -f "${pmade}"
+			then
+				#
+				# find matching port directory (origin)
+				origin="$(pkg_info -q -o ${pmade})"
+				if test "${origin}" = ""
+				then
+					echo "${i}: missing origin"
+					move_away ${i}
+					break
+				fi
+				depdir="${portsdir}/${origin}"
+				if test ! -d "${depdir}"
+				then
+					echo "${i}: dependency ${pmade} missing ports dir => ${depdir}"
+					move_away ${i}
+					break
+				fi
+				pnew="$(cd "${depdir}"; make -V PKGFILE)"
+				if test "${pnew}" = "${pkgall}/${pmade}"
+				then
+					if test "${pmade}" -nt "${ptarget}"
+					then
+						echo "${i}: dependend package ${pmade} newer"
+						move_away ${i}
+						break
+					fi
+					#
+					# up to date
+					continue
+				fi
+				echo "${i}: dependency ${pmade} is obsolete => ${pnew}"
+				move_away ${i}
+				break
+			else
+				echo "${i}: dependency ${pmade} missing!"
+				move_away ${i}
+				break
+			fi
+		done
+	done
+}
+#
+# check all links in ${PACKAGES}/
+# Usage: clean_package_links
+clean_package_links() {
+	#
+	# find all links
+	find ${packages} -type l |
+	while read link
+	do
+		if test -s "${link}"
+		then
+			#
+			# it results in a real file
+			continue
+		fi
+		#
+		# remove stale link
+		rm -f "${link}"
+	done
+}
+#
 # inform usage
 usage() {
 	echo "Usage: ${0##*/}: make-packages [port] [...]" >&2
 	echo "Usage: ${0##*/}: add-packages [port] [...]" >&2
 	echo "Usage: ${0##*/}: install-packages [port] [...]" >&2
+	echo "Usage: ${0##*/}: clean-packages" >&2
 	exit 64
 }
+
 #
 # check empty call
 if test $# -lt 1
@@ -598,6 +713,7 @@ localdir="/usr/ports/local/update"
 logdir="${PKG_UPDATE_LOGDIR:-${localdir}/log-${hostname}}"
 depends="${localdir}/data/depends.$(hostname)"
 #
+#	get all path information from /etc/make.conf
 nowarn="COMMENT=0 CATEGORIES=0 PORTVERSION=0"
 portsdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PORTSDIR)"
 pkg_dbdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_DBDIR)"
@@ -686,6 +802,16 @@ install-packages)
 			install_packages_in_dir "${i}"
 		fi
 	done
+	;;
+clean-packages)
+	packages="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PACKAGES)"
+	ext="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_SUFX)"
+	#	the directorys with contain the package files
+	pkgall="${packages}/All"
+	pkgold="${packages}/Old"
+	#
+	clean_package_all
+	clean_package_links
 	;;
 *)
 	usage
