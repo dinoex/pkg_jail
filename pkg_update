@@ -34,6 +34,16 @@
 #
 #
 
+quiet_mkdir() {
+	for dir in "${@}"
+	do
+		if test ! -d "${dir}"
+		then
+			mkdir "${dir}"
+		fi
+	done
+}
+#
 # clean all data that is listed in mtree
 # Usage: cleanmtree prefix local-temp-directory mtree-file
 cleanmtree() {
@@ -125,7 +135,7 @@ port_uptodate() {
 
 	case "$1" in
 	show)
-		rm -f "${logdir}/show"*
+		rm -f "${logdir}/"show*
 		;;
 	esac
 	#
@@ -522,18 +532,6 @@ add_packages_in_dir() {
 		;;
 	esac
 	rm -f "${tmpshow}"
-}
-#
-# make directories for logfiles and config
-make_build_dirs() {
-	# create dirs
-	for i in data "${logdir}"
-	do
-		if test ! -d "${i}"
-		then
-			mkdir "${i}"
-		fi
-	done
 }
 #
 # install the existing packages from a port to a host
@@ -980,9 +978,8 @@ update_origin() {
 	movedto=`fgrep "${origin}|" "${portsdir}/MOVED" |
 		tail -1 |
 		cut -d "|" -f2`
-	if test "${movedto}" = ""
+	if test "${origin}" = "${movedto}"
 	then
-		fgrep "${origin}|" "${portsdir}/MOVED"
 		return
 	fi
 	echo "Updating: ${origin} -> ${movedto}"
@@ -1036,14 +1033,15 @@ fix_moved_ports() {
 #
 # check recursive for deinstall
 delete_dependent_package() {
+	local installed 
 	installed="${1}"
 	edit="${pkg_dbdir}/${installed}/+REQUIRED_BY"
 	if test -s "${edit}"
 	then
 		cat "${edit}" |
-		while read required
+		while read requiredby
 		do
-			delete_dependent_package "${required}"
+			delete_dependent_package "${requiredby}"
 		done
 	fi
 	seenflag="${seen}/${installed}"
@@ -1059,11 +1057,8 @@ delete_dependent_package() {
 #
 # generate orderd list to deinstall all old packages on a host
 make_deinstall_list() {
-	if test ! -d "${seen}"
-	then
-		mkdir "${seen}"
-	fi
-	rm -f "${seen}/*"
+	quiet_mkdir "${seen}"
+	rm -f "${seen}/"*
 	(
 		echo "#!/bin/sh"
 		cat "${cache}" |
@@ -1076,7 +1071,7 @@ make_deinstall_list() {
 			esac
 		done
 	) > "${deinstall}"
-	rm -f "${seen}/*"
+	rm -f "${seen}/"*
 }
 #
 # remove_from_file
@@ -1206,7 +1201,6 @@ replace_package() {
 				edit="${pkg_dbdir}/${depend}/+REQUIRED_BY"
 				if test -f "${edit}"
 				then
-echo \
 					remove_from_file "${edit}" "${oldpkg}"
 				fi
 			done
@@ -1217,9 +1211,7 @@ echo \
 			edit="${grep%%:*}"
 			if test -f "${edit}"
 			then
-echo \
 				remove_from_file "${edit}" "${oldpkg}"
-echo \
 				add_to_file "${edit}" "${newpkg}"
 			fi
 		done
@@ -1280,6 +1272,198 @@ echo \
 	rm -f "${tmp1}" "${tmp2}" "${tmp3}" "${tmp4}"
 }
 #
+# get_moved_origin origin
+get_new_origin() {
+	movedto="${origin}"
+	if test ! -d "${portsdir}/${origin}"
+	then
+		if ! fgrep -q "${origin}|" "${portsdir}/MOVED"
+		then
+			return
+		fi
+		movedto=`fgrep "${origin}|" "${portsdir}/MOVED" |
+			tail -1 |
+			cut -d "|" -f2`
+	fi
+	echo "${movedto}"
+}
+#
+set_fail_count() {
+	case "${1}" in
+	zero)
+		fail="0"
+		;;
+	donn)
+		fail=`cat "${failcount}"`
+		fail="$((${fail} - 1))"
+		;;
+	up)
+		fail=`cat "${failcount}"`
+		fail="$((${fail} + 1))"
+		;;
+	esac
+	echo "${fail}" > "${failcount}"
+}
+#
+# check dependency for easy deinstall
+easy_required_package() {
+	local installed contents pkgname deporigin
+	installed="${1}"
+	if test -e "${good}/${installed}"
+	then
+		return
+	fi
+	if test -e "${required}/${installed}"
+	then
+		return
+	fi
+	touch "${required}/${installed}"
+	contents="${pkg_dbdir}/${installed}/+CONTENTS"
+	grep "^@comment DEPORIGIN" "${contents}" |
+	while read comment deporigin
+	do
+		deporigin="${deporigin#DEPORIGIN:}"
+		pkgname=`cd "${portsdir}/${deporigin}" && make -V PKGNAME`
+		if test -e "${seen}/${pkgname}"
+		then
+			continue
+		fi
+		if test -e "${inrequired}/${pkgname}"
+		then
+			continue
+		fi
+		touch "${inrequired}/${pkgname}"
+		if test ! -d "${pkg_dbdir}/${pkgname}"
+		then
+			echo "# missing dependency ${pkgname}" 
+			touch "${failed}/${pkgname}"
+			set_fail_count up
+		fi
+	done
+	fail=`cat "${failcount}"`
+	if test "${fail}" -eq "0"
+	then
+		touch "${good}/${installed}"
+	fi
+}
+# check recursive for easy deinstall
+easy_dependent_package() {
+	local installed edit requiredby origin movedto pkgname pkgfile
+	installed="${1}"
+	if test -e "${required}/${installed}"
+	then
+		return
+	fi
+	edit="${pkg_dbdir}/${installed}/+REQUIRED_BY"
+	if test -s "${edit}"
+	then
+		cat "${edit}" |
+		while read requiredby
+		do
+			easy_dependent_package "${requiredby}"
+		done
+	fi
+	if test -e "${seen}/${installed}"
+	then
+		return
+	fi
+	touch "${seen}/${installed}"
+	origin=`pkg_info -qo "${installed}"`
+	movedto=`get_new_origin "${origin}"`
+	pkgname=`cd "${portsdir}/${movedto}" && make -V PKGNAME`
+	pkgfile=`cd "${portsdir}/${movedto}" && make -V PKGFILE`
+	echo "#	${installed}	${portsdir}/${origin}"
+	if test -f "${pkgfile}"
+	then
+		remake="pkg_add ${pkgfile}"
+	else
+		remake="# missing package: ${pkgfile}"
+		echo "# missing package: ${pkgfile}"
+		set_fail_count up
+	fi
+	mv -f "${easyremake}" "${easyremaketmp}"
+	echo "${remake}" > "${easyremake}"
+	cat "${easyremaketmp}" >> "${easyremake}"
+	echo "pkg_delete ${installed}" >> "${easyclean}"
+	if test -f "${failed}/${pkgname}"
+	then
+		echo "# updating dependend package ${pkgname}"
+		set_fail_count down
+	fi
+	easy_required_package "${installed}"
+}
+#
+easy_process_output() {
+	if test -s "${easyremake}"
+	then
+		fail=`cat "${failcount}"`
+		if test "${fail}" -eq "0"
+		then
+			echo "#"
+			cat "${easyclean}" "${easyremake}"
+		fi
+	fi
+	echo "#"
+	echo "# eof"
+	set_fail_count zero
+	rm -f "${easyclean}" "${easyremake}"
+	rm -f "${seen}/"*
+	rm -f "${required}/"*
+	rm -f "${inrequired}/"*
+	rm -f "${failed}/"*
+}
+#
+easy_update_package() {
+	local installed origin movedto pkgname
+	installed="${1}"
+	origin=`pkg_info -qo "${installed}"`
+	if test "${origin}" = ""
+	then
+		return
+	fi
+	movedto=`get_new_origin "${origin}"`
+	if test "${movedto}" = ""
+	then
+		return
+	fi
+	pkgname=`cd "${portsdir}/${movedto}" && make -V PKGNAME`
+	touch "${inrequired}/${pkgname}"
+	set_fail_count zero
+	easy_dependent_package "${installed}"
+	easy_process_output
+}
+#
+# make_easy_update
+make_easy_update() {
+	easyremake="/tmp/easy-remake.list"
+	easyremaketmp="/tmp/easy-remake.list.tmp"
+	easyclean="/tmp/easy-clean.list"
+	quiet_mkdir "${seen}" "${required}" "${inrequired}" "${failed}" "${good}"
+	rm -f "${seen}/"*
+	rm -f "${required}/"*
+	rm -f "${inrequired}/"*
+	rm -f "${failed}/"*
+	rm -f "${good}/"*
+	touch "${easyremake}" "${easyclean}"
+	(
+		echo "#!/bin/sh"
+		cat "${cache}" |
+		while read installed flag status origin
+		do
+			case "${flag}" in
+			'<')
+				easy_update_package "${installed}"
+				;;
+			'?'|'!')
+				easy_update_package "${installed}"
+				;;
+			esac
+		done
+		easy_process_output
+	) > "${easyupdate}"
+#	awk -v HOSTNAME=${hostname} -f check-update.awk "${cache}"
+}
+#
 # inform usage
 usage() {
 	echo "Usage:" >&2
@@ -1301,6 +1485,7 @@ usage() {
 	echo "    ${0##*/}: show-missing-reinstall" >&2
 	echo "    ${0##*/}: show-missing-installed" >&2
 	echo "    ${0##*/}: reinstall" >&2
+	echo "    ${0##*/}: make-easy-update" >&2
 	echo "    ${0##*/}: replace-package [port] [...]" >&2
 	echo "    ${0##*/}: clean" >&2
 	echo "    ${0##*/}: check-installed-ports [port]" >&2
@@ -1325,6 +1510,11 @@ cache="${localdir}/version-list.${hostname}"
 deinstall="${localdir}/deinstall.${hostname}"
 easyupdate="${localdir}/easyupdate.${hostname}"
 seen="/tmp/deinstall-seen"
+required="/tmp/required-seen"
+inrequired="/tmp/inrequired-seen"
+failed="/tmp/easy-failed"
+good="/tmp/easy-good"
+failcount="/tmp/easy-failecount.txt"
 #
 #	get all path information from /etc/make.conf
 nowarn="COMMENT=0 CATEGORIES=0 PORTVERSION=0"
@@ -1350,7 +1540,7 @@ make-packages)
 		echo "error in path: ${0}" >&2
 		exit 64
 	fi
-	make_build_dirs
+	quiet_mkdir "${localdir}/data" "${logdir}"
 	for i in "${@}"
 	do
 		if test -f "${i}"
@@ -1377,7 +1567,7 @@ add-packages)
 		echo "error in path: ${0}" >&2
 		exit 64
 	fi
-	make_build_dirs
+	quiet_mkdir "${localdir}/data" "${logdir}"
 	for i in "${@}"
 	do
 		if test -f "${i}"
@@ -1582,6 +1772,10 @@ replace-package)
 		replace_package "${i}"
 	done
 	;;
+make-easy-update)
+	make_version_list
+	make_easy_update > "${easyupdate}"
+	;;
 clean)
 	rm -f "${cache}" "${deinstall}" "${easyupdate}"
 	;;
@@ -1672,7 +1866,7 @@ full-update-jail)
 		;;
 	esac
 	/bin/sh "${0}" clean-packages
-	rm -f ${logdir}/err,*
+	rm -f "${logdir}/"err,*
 	/bin/sh "${0}" clean-make-packages
 	;;
 *)
