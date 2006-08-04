@@ -960,6 +960,52 @@ fix_moved_ports() {
 #
 # generate orderd list to deinstall all old packages on a host
 make_deinstall_list() {
+	awk \
+		-v HOSTNAME="${hostname}" \
+		-v PORTSDIR="${portsdir}" \
+		-v PKG_DBDIR="${pkg_dbdir}" \
+	'
+BEGIN {
+	TMP="/tmp/pkg_dirty"
+	ERRDIR="/tmp"
+	print "#!/bin/sh"
+	OFS="\t"
+}
+END {
+	system( "rm -f " TMP )
+}
+function find_dir( key ) {
+	package_dir = PKG_DBDIR "/" key "/"
+	rc = system( "grep ^@comment.ORIGIN: " package_dir "+CONTENTS > " TMP )
+	rc = getline < TMP
+	close( TMP )
+	return PORTSDIR "/" substr( $0, 17 )
+}
+function file_depends( key, found, package_dir, control, rc ) {
+	found = 0
+	package_dir = PKG_DBDIR "/" key "/"
+	control = package_dir "+REQUIRED_BY"
+	while ( ( rc = getline < control ) > 0 ) {
+		required = $1
+		found ++
+		found += file_depends( required )
+	}
+	close( control )
+	line = "pkg_delete " key
+	if ( SEEN[ line ] == "" ) {
+		print "#\t" key "\t" find_dir( key )
+		print line
+		SEEN[ line ] = 1
+	}
+	return found
+}
+# ORBit-0.5.8                 <   needs updating (port has 0.5.8_1)
+# agenda-gnupg-1.0.6          ?   unknown in index
+$2 == "<" {
+	port_delete = $1
+	file_depends( port_delete )
+}
+' "${cache}" > "${deinstall}"
 }
 #
 # inform usage
@@ -1150,6 +1196,7 @@ make-version-list)
 	make_version_list
 	;;
 make-deinstall-list)
+	make_version_list
 	make_deinstall_list
 	;;
 reinstall)
