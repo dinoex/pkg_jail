@@ -893,6 +893,7 @@ usage() {
 	echo "Usage: ${0##*/}: fetch-distfiles" >&2
 	echo "Usage: ${0##*/}: dependency-update" >&2
 	echo "Usage: ${0##*/}: list-installed-ports" >&2
+	echo "Usage: ${0##*/}: check-installed-ports [port]" >&2
 	echo "Usage: ${0##*/}: cvsup" >&2
 	echo "Usage: ${0##*/}: full-update-jail [retry]" >&2
 	exit 64
@@ -940,7 +941,7 @@ make-packages)
 	do
 		if test -f "${i}"
 		then
-			for dir in `grep -v ^# ${i}`
+			for dir in `grep -v "^#" "${i}"`
 			do
 				make_packages_in_dir "${dir}"
 			done
@@ -967,7 +968,7 @@ add-packages)
 	do
 		if test -f "${i}"
 		then
-			for dir in `grep -v ^# ${i}`
+			for dir in `grep -v "^#" "${i}"`
 			do
 				add_packages_in_dir "${dir}"
 			done
@@ -993,7 +994,7 @@ install-packages)
 	do
 		if test -f "${i}"
 		then
-			for dir in `grep -v ^# ${i}`
+			for dir in `grep -v "^#" "${i}"`
 			do
 				install_packages_in_dir "${dir}"
 			done
@@ -1011,7 +1012,7 @@ fetch-distfiles)
 		then
 			usage
 		fi
-		exec /bin/sh "${0}" install-packages "${defaultdata}"
+		exec /bin/sh "${0}" fetch-distfiles "${defaultdata}"
 		echo "error in path: ${0}" >&2
 		exit 64
 	fi
@@ -1019,7 +1020,7 @@ fetch-distfiles)
 	do
 		if test -f "${i}"
 		then
-			for dir in `grep -v ^# ${i}`
+			for dir in `grep -v "^#" "${i}"`
 			do
 				fetch_distfiles_in_dir "${dir}"
 			done
@@ -1048,6 +1049,49 @@ dependency-update)
 list-installed-ports)
 	shift
 	pkg_info -qoa "${@}"
+	;;
+check-installed-ports)
+	defaultdata="data/install-packages.$(hostname)"
+	shift
+	if test "${#}" -lt 1
+	then
+		if test ! -f "${defaultdata}"
+		then
+			usage
+		fi
+		exec /bin/sh "${0}" check-installed-ports "${defaultdata}"
+		echo "error in path: ${0}" >&2
+		exit 64
+	fi
+	(
+		for i in "${@}"
+		do
+			if test -f "${i}"
+			then
+				grep -v "^#" "${i}"
+			else
+				echo "${i}"
+			fi
+		done
+	) |
+	sort -u > tmp-check-install.1
+	pkg_info -qoa |
+	sort -u > tmp-check-install.2
+	obsolete=`comm -23 tmp-check-install.1 tmp-check-install.2`
+	if test "${obsolete}"
+	then
+		echo "#    not installed, but listed:"
+		echo "${obsolete}"
+		echo ""
+	fi
+	obsolete=`comm -13 tmp-check-install.1 tmp-check-install.2`
+	if test "${obsolete}"
+	then
+		echo "#    installed, but not listed:"
+		echo "${obsolete}"
+		echo ""
+	fi
+	rm -f tmp-check-install.1 tmp-check-install.2
 	;;
 cvsup)
 	installed=`pkg_info -qao | grep cvsup`
@@ -1084,7 +1128,7 @@ full-update-jail)
 		else
 			if test -f "${defaultdata}"
 			then
-				sh ./cvsup.sh "$@"
+				/bin/sh "${0}" cvsup "$@"
 			fi
 		fi
 		;;
