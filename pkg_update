@@ -1,0 +1,278 @@
+#!/bin/sh
+#
+hostname=`hostname -s`
+localdir="/usr/ports/local/update"
+logdir="${localdir}/log-${hostname}"
+defaultdata="data/make-packages.$(hostname)"
+#
+nowarn="COMMENT=0 CATEGORIES=0 PORTVERSION=0"
+portsdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PORTSDIR)"
+pkg_dbdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_DBDIR)"
+#
+
+cleanmtree() {
+	prefix="${1}"
+	tmplocal="${2}"
+	mkdir "${tmplocal}"
+	mtree -duqn -p "${tmplocal}" -f $3 >> /dev/null
+	find -d "${tmplocal}" -type d |
+	sed "s=${tmplocal}==" |
+	while read name
+	do
+		rmdir "${tmplocal}/${name}"
+		if test -d "${prefix}/${name}"
+		then
+			rmdir "${prefix}/${name}"
+		fi
+	done
+}
+
+plist_links() {
+	while read linkname
+	do
+#		linktarget=`readlink "${linkname}"`
+#		echo "@exec ln -s ${linktarget} %D/${linkname}"
+#		echo "@unexec rm -f %D/${linkname}"
+		echo "${linkname}"
+	done
+}
+
+plist_dir() {
+	while read dir
+	do
+		dirrm="@dirrm ${dir}"
+		if test -f pkg-plist
+		then
+			if fgrep -q -x "${dirrm}" pkg-plist
+			then
+				continue
+			fi
+			if fgrep -q -x "%%PORTDOCS%%${dirrm}" pkg-plist
+			then
+				continue
+			fi
+		fi
+		echo "${dirrm}"
+	done
+}
+
+plist_sub() {
+	subs="${1}"
+	echo "s=$(make -V PREFIX)/==g" > "${subs}"
+	make -V PLIST_SUB |
+	awk -F = '
+{
+	QT = "\""
+	LINE = $0
+	gsub( "[ \t]$", "", LINE )
+	while ( LINE != "" ) {
+		gsub( "^[ \t]*", "", LINE )
+		gsub( ":=", "=", LINE )
+		if ( ! match( LINE, "^[A-Z][0-9A-Z_]*=" ) ) {
+			print "error:" LINE
+			break
+		}
+		KEY = substr( LINE, RSTART, RLENGTH - 1 )
+		LINE = substr( LINE, RSTART + RLENGTH )
+		if ( substr( LINE, 1, 1 )  == QT ) {
+			LINE = substr( LINE, 2 )
+			I = index( LINE, "\"" )
+			VAL = substr( LINE, 1, I - 1 )
+			LINE = substr( LINE, I + 1 )
+		} else {
+			I = index( LINE, " " )
+			VAL = substr( LINE, 1, I - 1 )
+			LINE = substr( LINE, I )
+		}
+		if ( KEY == "XAWVER" )
+			continue
+		if ( VAL == "" )
+			continue
+		if ( VAL == "@comment " )
+			continue
+		if ( VAL == "%D" )
+			continue
+		gsub( "[.]", "[.]", VAL )
+		print "s=" VAL "=%%" KEY "%%=g"
+	}
+}' >> "${subs}"
+}
+
+# create dirs
+for i in data "${logdir}"
+do
+	if test ! -d "${i}"
+	then
+		mkdir "${i}"
+	fi
+done
+
+if test ! -f "${defaultdata}"
+then
+	echo "Danger! This will delete all packages and /usr/local" >&2
+	exit 65
+fi
+
+#
+action_dir() {
+	dir="${1}"
+	if test "${dir}" = ""
+	then
+		return
+	fi
+	if test ! -d "${dir}"
+	then
+		dir="${portsdir}/${dir}"
+	fi
+	if test -d "${dir}"
+	then
+		echo ""
+		echo "# checking: ${dir}"
+		cd "${dir}" || exit 65
+
+		wrkdir=`make -V WRKDIRPREFIX`
+		if ! test "${wrkdir}" = ""
+		then
+			rm -rf ${wrkdir}/*
+			pkg_delete -f ${pkg_dbdir}/* >/dev/null 2>&1
+			rm -rf /usr/local/* /usr/X11R6/*
+		fi
+		
+		sh ${localdir}/port-uptodate.sh show > /tmp/check-package.out
+		err="${?}"
+
+		case "${err}" in
+		1)
+			sh ${localdir}/port-uptodate.sh make
+			err="${?}"
+			if test "${err}" != "0"
+			then
+				echo "${localdir}/port-uptodate.sh: aborted!"
+			fi
+
+			make deinstall
+			pkg_delete ${pkg_dbdir}/* >/dev/null 2>&1
+#			make clean |
+#			while read dummy1 text1 text2 cleanname
+#			do
+#				pkg_delete -f "${cleanname}"
+#			done
+			if test -f ${localdir}/data/badfiles
+			then
+				grep -v "^#" ${localdir}/data/badfiles |
+				while read bad
+				do
+					if test -f "${bad}"
+					then
+						rm -f "${bad}"
+					fi
+					if test -L "${bad}"
+					then
+						rm -f "${bad}"
+					fi
+				done
+			fi
+			if test -f ${localdir}/data/baddirs
+			then
+				grep -v "^#" ${localdir}/data/baddirs |
+				while read bad
+				do
+					if test -d "${bad}"
+					then
+						rmdir "${bad}"
+					fi
+				done
+			fi
+			name="${logdir}/plist,$(make -V PKGORIGIN | sed -e 's=/=,=')"
+			subs="${name}.sed"
+			plist_sub "${subs}"
+			echo -n "" > "${name}"
+			if test -d /root/GNUstep
+			then
+				find -d /root/GNUstep -type f >> "${name}"
+				find -d /root/GNUstep -type d |
+				sed -e 's=^=@dirrm =' >> "${name}"
+				rm -rf /root/GNUstep
+			fi
+			if test -d /usr/local
+			then
+				find -d /usr/local -type f |
+				sed -f "${subs}" >> "${name}"
+				find -d /usr/local -type l |
+				plist_links |
+				sed -f "${subs}" >> "${name}"
+				cleanmtree /usr/local /tmp/local \
+					/etc/mtree/BSD.local.dist
+				if test -d /usr/local
+				then
+					find -d /usr/local -type d |
+					sed -f "${subs}" |
+					plist_dir >> "${name}"
+				fi
+			fi
+			if test -d /usr/X11R6
+			then
+				find -d /usr/X11R6 -type f |
+				sed -f "${subs}" >> "${name}"
+				find -d /usr/X11R6 -type l |
+				plist_links |
+				sed -f "${subs}" >> "${name}"
+				cleanmtree /usr/X11R6 /tmp/X11R6 \
+					/etc/mtree/BSD.x11-4.dist
+				cleanmtree /usr/X11R6 /tmp/X11R6 \
+					/etc/mtree/BSD.x11.dist
+				if test -d /usr/X11R6
+				then
+					find -d /usr/X11R6 -type d |
+					sed -f "${subs}" |
+					plist_dir >> "${name}"
+				fi
+			fi
+			rm -f "${subs}"
+			if test ! -s "${name}"
+			then
+				rm -f "${name}"
+			fi
+			;;
+		esac
+	else
+		case "${dir}" in
+		'')
+			;;
+		*nonexistant)
+			;;
+		*)
+			echo "## dir does not exist: ${dir}"
+			echo "## dir does not exist: ${dir}" \
+				>> ${localdir}/make-packages.errlog
+			;;
+		esac
+	fi
+}
+#
+if test "${#}" -lt 1
+then
+	if test ! -f "${defaultdata}"
+	then
+		echo "Usage: ${0} [port]" >&2
+		exit 64
+	fi
+	exec /bin/sh $0 "${defaultdata}"
+	echo "error in path: ${0}" >&2
+	exit 64
+fi
+for i in "${@}"
+do
+	if test -f "${i}"
+	then
+		for dir in `grep -v ^# ${i}`
+		do
+			action_dir "${dir}"
+		done
+	else
+		action_dir "${i}"
+	fi
+done
+exit 0
+#
+# eof
