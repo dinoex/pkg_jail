@@ -348,6 +348,7 @@ port_uptodate() {
 # make all packages to build a port in a clean jail
 # Usage: make_packages_in_dir directory
 make_packages_in_dir() {
+	tmpshow="/tmp/check-package.$$"
 	dir="${1}"
 	if test "${dir}" = ""
 	then
@@ -371,7 +372,7 @@ make_packages_in_dir() {
 			rm -rf /usr/local/* /usr/X11R6/*
 		fi
 		
-		port_uptodate show > /tmp/check-package.out
+		port_uptodate show > "${tmpshow}"
 		err="${?}"
 
 		case "${err}" in
@@ -461,6 +462,7 @@ make_packages_in_dir() {
 			fi
 			;;
 		esac
+		rm -f "${tmpshow}"
 	else
 		case "${dir}" in
 		'')
@@ -479,6 +481,7 @@ make_packages_in_dir() {
 # make all packages to build and install a port to a host
 # Usage: add_packages_in_dir directory
 add_packages_in_dir() {
+	tmpshow="/tmp/check-package.$$"
 	dir="${1}"
 	if test "${dir}" = ""
 	then
@@ -503,7 +506,7 @@ add_packages_in_dir() {
 	echo "# checking: ${dir}"
 	cd "${dir}" || return 69
 
-	port_uptodate show > /tmp/check-package.out
+	port_uptodate show > "${tmpshow}"
 	err="${?}"
 	case "${err}" in
 	0)
@@ -518,6 +521,7 @@ add_packages_in_dir() {
 		port_uptodate make
 		;;
 	esac
+	rm -f "${tmpshow}"
 }
 #
 # make directories for logfiles and config
@@ -725,30 +729,32 @@ clean_package_links() {
 # check fort obsolte distfiles
 # Usage: clean_distfiles
 clean_distfiles() {
-	rm -f /tmp/all-distfiles
-	find /tmp/all-distinfo -type f -mtime +1 -exec rm -f {} \;
-	if ! test -f /tmp/all-distinfo
+	tmp1="/tmp/all-distinfo"
+	tmp2="/tmp/all-distfiles"
+	rm -f "${tmp2}"
+	find "${tmp1}" -type f -mtime +1 -exec rm -f {} \;
+	if ! test -f "${tmp1}"
 	then
 		echo "Processing ... distinfo"
 		find ${portsdir}/ -type f -name "distinfo*" -exec \
 		cut -d " " -f2 "{}" ";" |
 		tr -d '()' |
-		sort -u > /tmp/all-distinfo
+		sort -u > "${tmp1}"
 	fi
-	if ! test -f /tmp/all-distfiles
+	if ! test -f "${tmp2}"
 	then
 		echo "Processing ... distfiles"
 		find ${distdir}/ -type f |
 		grep -v "${old}/" |
 		sed -e "s=${distdir}/==" |
-		sort -u > /tmp/all-distfiles
+		sort -u > "${tmp2}"
 	fi
 	echo "Processing ... differences"
-	comm -13 /tmp/all-distinfo /tmp/all-distfiles |
+	comm -13 "${tmp1}" "${tmp2}" |
 	while read name
 	do
-		tmp="/${name}"
-		dir="${tmp%/*}"
+		dir="/${name}"
+		dir="${dir%/*}"
 		echo "${dir}" "${name}"
 		if test ! -d "${old}${dir}"
 		then
@@ -1051,6 +1057,8 @@ list-installed-ports)
 	pkg_info -qoa "${@}"
 	;;
 check-installed-ports)
+	tmp1="/tmp/check-listed.$$"
+	tmp2="/tmp/check-installed.$$"
 	defaultdata="data/install-packages.$(hostname)"
 	shift
 	if test "${#}" -lt 1
@@ -1074,24 +1082,25 @@ check-installed-ports)
 			fi
 		done
 	) |
-	sort -u > tmp-check-install.1
+	sed -e 's=^/usr/ports/==' |
+	sort -u > "${tmp1}"
 	pkg_info -qoa |
-	sort -u > tmp-check-install.2
-	obsolete=`comm -23 tmp-check-install.1 tmp-check-install.2`
+	sort -u > "${tmp2}"
+	obsolete=`comm -23 "${tmp1}" "${tmp2}"`
 	if test "${obsolete}"
 	then
 		echo "#    not installed, but listed:"
 		echo "${obsolete}"
 		echo ""
 	fi
-	obsolete=`comm -13 tmp-check-install.1 tmp-check-install.2`
+	obsolete=`comm -13 "${tmp1}" "${tmp2}"`
 	if test "${obsolete}"
 	then
 		echo "#    installed, but not listed:"
 		echo "${obsolete}"
 		echo ""
 	fi
-	rm -f tmp-check-install.1 tmp-check-install.2
+	rm -f "${tmp1}" "${tmp2}"
 	;;
 cvsup)
 	installed=`pkg_info -qao | grep cvsup`
