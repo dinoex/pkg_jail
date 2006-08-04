@@ -922,15 +922,19 @@ update_origin() {
 	done
 }
 #
-# update origin ins installed package when ports has been moved
-# Usage: fix_moved_ports
-fix_moved_ports() {
-	cache="${localdir}/version-list.${hostname}"
+# write new package state
+make_version_list() {
 	if test ! -s "${cache}"
 	then
 		echo pkg_version -v -L 
 		pkg_version -v -L = | grep -v bsdpan- > "${cache}"
 	fi
+}
+#
+# update origin ins installed package when ports has been moved
+# Usage: fix_moved_ports
+fix_moved_ports() {
+	make_version_list
 	if grep -q "orphaned" "${cache}"
 	then
 		grep "orphaned" "${cache}" |
@@ -966,6 +970,7 @@ usage() {
 	echo "    ${0##*/}: dependency-update" >&2
 	echo "    ${0##*/}: fix-moved-ports" >&2
 	echo "    ${0##*/}: list-installed-ports" >&2
+	echo "    ${0##*/}: version-list" >&2
 	echo "    ${0##*/}: check-installed-ports [port]" >&2
 	echo "    ${0##*/}: cvsup" >&2
 	echo "    ${0##*/}: full-update-jail [retry]" >&2
@@ -984,6 +989,7 @@ localdir="/usr/ports/local/update"
 logdir="${PKG_UPDATE_LOGDIR:-${localdir}/log-${hostnames}}"
 hostname=`hostname`
 depends="${localdir}/data/depends.$(hostname)"
+cache="${localdir}/version-list.${hostname}"
 #
 #	get all path information from /etc/make.conf
 nowarn="COMMENT=0 CATEGORIES=0 PORTVERSION=0"
@@ -1125,6 +1131,9 @@ fix-moved-ports)
 list-installed-ports)
 	shift
 	pkg_info -qao "${@}"
+	;;
+version-list)
+	make_version_list
 	;;
 check-installed-ports)
 	tmp1="/tmp/check-listed.$$"
