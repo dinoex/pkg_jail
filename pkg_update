@@ -579,6 +579,36 @@ install_packages_in_dir() {
 	echo "(cd ${dir} && make package)"
 }
 #
+# fetch the distfiles for a port
+# Usage: fetch_distfiles_in_dir directory
+fetch_distfiles_in_dir() {
+	dir="${1}"
+	if test "${dir}" = ""
+	then
+		return
+	fi
+	case "${dir}" in
+	*nonexistant)
+		return
+		;;
+	esac
+	if test ! -d "${dir}"
+	then
+		xdir="${portsdir}/${dir}"
+		if test ! -d "${xdir}"
+		then
+			echo "## dir does not exist: ${dir}"
+			return
+		fi
+		dir="${xdir}"
+	fi
+
+	echo "# checking: ${dir}"
+	cd "${dir}" || return 69
+
+	make fetch
+}
+#
 # move outdated package int seperate dir for cleanup
 # usage: move_away package
 move_away() {
@@ -860,6 +890,8 @@ usage() {
 	echo "Usage: ${0##*/}: install-packages [port] [...]" >&2
 	echo "Usage: ${0##*/}: clean-packages" >&2
 	echo "Usage: ${0##*/}: clean-distfiles" >&2
+	echo "Usage: ${0##*/}: fetch-distfiles" >&2
+	echo "Usage: ${0##*/}: dependency-update" >&2
 	exit 64
 }
 
@@ -962,6 +994,32 @@ install-packages)
 			done
 		else
 			install_packages_in_dir "${i}"
+		fi
+	done
+	;;
+fetch-distfiles)
+	shift
+	if test "${#}" -lt 1
+	then
+		defaultdata="data/make-packages.$(hostname)"
+		if test ! -f "${defaultdata}"
+		then
+			usage
+		fi
+		exec /bin/sh ${0} install-packages "${defaultdata}"
+		echo "error in path: ${0}" >&2
+		exit 64
+	fi
+	for i in "${@}"
+	do
+		if test -f "${i}"
+		then
+			for dir in `grep -v ^# ${i}`
+			do
+				fetch_distfiles_in_dir "${dir}"
+			done
+		else
+			fetch_distfiles_in_dir "${i}"
 		fi
 	done
 	;;
