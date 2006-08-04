@@ -892,6 +892,7 @@ usage() {
 	echo "Usage: ${0##*/}: clean-distfiles" >&2
 	echo "Usage: ${0##*/}: fetch-distfiles" >&2
 	echo "Usage: ${0##*/}: dependency-update" >&2
+	echo "Usage: ${0##*/}: cvsup" >&2
 	echo "Usage: ${0##*/}: full-update-jail [retry]" >&2
 	exit 64
 }
@@ -913,6 +914,7 @@ depends="${localdir}/data/depends.$(hostname)"
 nowarn="COMMENT=0 CATEGORIES=0 PORTVERSION=0"
 portsdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PORTSDIR)"
 pkg_dbdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_DBDIR)"
+packages="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PACKAGES)"
 #
 case "${1}" in
 make-packages)
@@ -1026,7 +1028,6 @@ fetch-distfiles)
 	done
 	;;
 clean-packages)
-	packages="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PACKAGES)"
 	ext="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_SUFX)"
 	pkgall="${packages}/All"
 	pkgold="${packages}/Old"
@@ -1042,6 +1043,25 @@ clean-distfiles)
 	;;
 dependency-update)
 	dependency_update
+	;;
+cvsup)
+	installed=`pkg_info -qao | grep cvsup`
+	if test "${installed}" = ""
+	then
+		for i in \
+			${packages}/All/cvsup-without-gui-* \
+			${localdir}/cvsup-without-gui-*
+		do
+			if test -f "${i}"
+			then
+				echo \
+				pkg_add ${i}
+				pkg_add ${i}
+				break
+			fi
+		done
+	fi
+	cd ${portsdir} && make update "$@"
 	;;
 full-update-jail)
 	cd ${localdir} || exit 69
