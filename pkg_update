@@ -892,6 +892,7 @@ usage() {
 	echo "Usage: ${0##*/}: clean-distfiles" >&2
 	echo "Usage: ${0##*/}: fetch-distfiles" >&2
 	echo "Usage: ${0##*/}: dependency-update" >&2
+	echo "Usage: ${0##*/}: full-update-jail [retry]" >&2
 	exit 64
 }
 
@@ -902,9 +903,10 @@ then
 	usage
 fi
 #
-hostname=`hostname -s`
+hostnames=`hostname -s`
 localdir="/usr/ports/local/update"
-logdir="${PKG_UPDATE_LOGDIR:-${localdir}/log-${hostname}}"
+logdir="${PKG_UPDATE_LOGDIR:-${localdir}/log-${hostnames}}"
+hostname=`hostname`
 depends="${localdir}/data/depends.$(hostname)"
 #
 #	get all path information from /etc/make.conf
@@ -926,7 +928,7 @@ make-packages)
 	shift
 	if test "${#}" -lt 1
 	then
-		exec /bin/sh ${0} make-packages "${defaultdata}"
+		exec /bin/sh "${0}" make-packages "${defaultdata}"
 		echo "error in path: ${0}" >&2
 		exit 64
 	fi
@@ -953,7 +955,7 @@ add-packages)
 		then
 			usage
 		fi
-		exec /bin/sh ${0} add-packages "${defaultdata}"
+		exec /bin/sh "${0}" add-packages "${defaultdata}"
 		echo "error in path: ${0}" >&2
 		exit 64
 	fi
@@ -980,7 +982,7 @@ install-packages)
 		then
 			usage
 		fi
-		exec /bin/sh ${0} install-packages "${defaultdata}"
+		exec /bin/sh "${0}" install-packages "${defaultdata}"
 		echo "error in path: ${0}" >&2
 		exit 64
 	fi
@@ -1006,7 +1008,7 @@ fetch-distfiles)
 		then
 			usage
 		fi
-		exec /bin/sh ${0} install-packages "${defaultdata}"
+		exec /bin/sh "${0}" install-packages "${defaultdata}"
 		echo "error in path: ${0}" >&2
 		exit 64
 	fi
@@ -1040,6 +1042,31 @@ clean-distfiles)
 	;;
 dependency-update)
 	dependency_update
+	;;
+full-update-jail)
+	cd ${localdir} || exit 69
+	defaultdata="data/make-packages.${hostname}"
+	cvsupscript="data/cvsup-${hostname}.sh"
+	#
+	shift
+	case "${1}" in
+	retry)
+		;;
+	*)
+		if test -f "${cvsupscript}"
+		then
+			sh "${cvsupscript}"
+		else
+			if test -f "${defaultdata}"
+			then
+				sh ./cvsup.sh "$@"
+			fi
+		fi
+		;;
+	esac
+	/bin/sh "${0}" clean-packages
+	rm -f ${logdir}/err,*
+	/bin/sh "${0}" clean-make-packages
 	;;
 *)
 	usage
