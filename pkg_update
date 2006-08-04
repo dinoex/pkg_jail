@@ -758,6 +758,101 @@ clean_distfiles() {
 	done
 }
 #
+# try to fix as much dependecy problens in installed ports
+# Usage: dependency_update
+dependency_update() {
+	#
+	pkg_info |
+	cut -d " " -f1 |
+	while read find
+	do
+		# depends on
+		pkg_info -r -q "${find}" |
+		while read key depend
+		do
+#			echo "${find} needs ${depend}"
+			dir="$(pkg_info -o -q ${depend} 2>/dev/null)"
+			if test "${dir}" = ""
+			then
+				dir="$(pkg_info -o -q ${find})"
+				pkg="${depend%%-[0-9]*}"
+				if test ! -d "${portsdir}/${dir}"
+				then
+					continue
+				fi
+				( cd "${portsdir}/${dir}" && make run-depends-list ) |
+				while read depdir
+				do
+					if test ! -d "${depdir}"
+					then
+						continue
+					fi
+					neu="$( cd "${depdir}" && make -V PKGNAME )"
+					dirneu="$(pkg_info -o -q ${neu} 2>/dev/null)"
+					pkgneu="${neu%%-[0-9]*}"
+					if test "${pkg}" = "${pkgneu}"
+					then
+						if test "${dirneu}" = ""
+						then
+							echo "${find} needs ${depend} (missing up-to-date ${neu})"
+							continue
+						fi
+						echo "updating: ${find}  ${depend} => ${neu}"
+						edit="${pkg_dbdir}/${find}/+CONTENTS"
+						cp -p "${edit}" "${edit}.bak"
+						sed -e "s=@pkgdep ${depend}$=@pkgdep ${neu}=" "${edit}.bak" > "${edit}"
+						rm -f "${edit}.bak"
+						edit="${pkg_dbdir}/${neu}/+REQUIRED_BY"
+						if ! test -f "${edit}"
+						then
+							touch "${edit}"
+						fi
+						if ! grep -q "^${find}$" "${edit}"
+						then
+							echo "register: ${find} in ${neu}"
+							echo "${find}" >> "${edit}"
+						fi
+						break
+					fi
+				done
+			else
+#				echo "${find} needs ${depend} in ${dir}"
+				edit="${pkg_dbdir}/${depend}/+REQUIRED_BY"
+				if ! grep -q "^${find}$" "${edit}"
+				then
+					echo "register: ${find} in ${depend}"
+					echo "${find}" >> "${edit}"
+				fi
+			fi
+		done
+		edit="${pkg_dbdir}/${find}/+REQUIRED_BY"
+		if test -f "${edit}"
+		then
+			cat "${edit}" |
+			while read neu
+			do
+				dirneu="$(pkg_info -o -q ${neu} 2>/dev/null)"
+				if test "${dirneu}" = ""
+				then
+					echo "${find} is required by ${neu} (not installed)"
+					if test -f "${edit}.bak"
+					then
+						grep -v "^${neu}$" "${edit}.bak" > "${edit}.neu" 
+						mv -f "${edit}.neu" "${edit}.bak"
+					else
+						grep -v "^${neu}$" "${edit}" > "${edit}.bak" 
+					fi
+				fi
+			done
+			if test -f "${edit}.bak"
+			then
+				mv -f "${edit}.bak" "${edit}"
+			fi
+		fi
+		continue
+	done
+}
+#
 # inform usage
 usage() {
 	echo "Usage: ${0##*/}: make-packages [port] [...]" >&2
@@ -884,6 +979,9 @@ clean-distfiles)
 	distdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V DISTDIR)"
 	#
 	clean_distfiles
+	;;
+dependency-update)
+	dependency_update
 	;;
 *)
 	usage
