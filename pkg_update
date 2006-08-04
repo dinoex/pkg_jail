@@ -889,6 +889,71 @@ dependency_update() {
 	done
 }
 #
+# update origin ins installed package when ports has been moved
+# Usage: update_origin installed origin
+update_origin() {
+	installed="${1}"
+	origin="${2}"
+	echo "${installed} ${origin}"
+	if ! fgrep -q "${origin}|" "${portsdir}/MOVED"
+	then
+		fgrep "${origin}" "${cache}"
+		return
+	fi
+	movedto=$(
+		fgrep "${origin}|" "${portsdir}/MOVED" |
+		tail -1 |
+		cut -f2 -d "|" )
+	if test "${movedto}" = ""
+	then
+		fgrep "${origin}|" "${portsdir}/MOVED"
+		return
+	fi
+	echo "Updating: ${origin} -> ${movedto}"
+	sed -i -e "s=${origin}=${movedto}=" "${pkg_dbdir}/${installed}/+CONTENTS"
+	pkg_info -qR "${installed}" |
+	while read requiredby
+	do
+		if test "${requiredby}" = ""
+		then
+			continue
+		fi
+		sed -i -e "s=${origin}=${movedto}=" "${pkg_dbdir}/${requiredby}/+CONTENTS"
+	done
+}
+#
+# update origin ins installed package when ports has been moved
+# Usage: fix_moved_ports
+fix_moved_ports() {
+	cache="${localdir}/version-list.${hostname}"
+	if test ! -s "${cache}"
+	then
+		echo pkg_version -v -L 
+		pkg_version -v -L = | grep -v bsdpan- > "${cache}"
+	fi
+	if grep -q "orphaned" "${cache}"
+	then
+		grep "orphaned" "${cache}" |
+		while read installed flag status origin
+		do
+			update_origin "${installed}" "${origin}"
+		done
+	fi
+	if egrep -q "Comparison failed" "${cache}"
+	then
+		egrep "Comparison failed" "${cache}" |
+		while read installed flag status failed
+		do
+			origin=`pkg_info -qo "${installed}"`
+			if test "${origin}" = ""
+			then
+				continue
+			fi
+			update_origin "${installed}" "${origin}"
+		done
+	fi
+}
+#
 # inform usage
 usage() {
 	echo "Usage: ${0##*/}: make-packages [port] [...]" >&2
@@ -898,6 +963,7 @@ usage() {
 	echo "Usage: ${0##*/}: clean-distfiles" >&2
 	echo "Usage: ${0##*/}: fetch-distfiles" >&2
 	echo "Usage: ${0##*/}: dependency-update" >&2
+	echo "Usage: ${0##*/}: fix-moved-ports" >&2
 	echo "Usage: ${0##*/}: list-installed-ports" >&2
 	echo "Usage: ${0##*/}: check-installed-ports [port]" >&2
 	echo "Usage: ${0##*/}: cvsup" >&2
@@ -1052,9 +1118,12 @@ clean-distfiles)
 dependency-update)
 	dependency_update
 	;;
+fix-moved-ports)
+	fix_moved_ports
+	;;
 list-installed-ports)
 	shift
-	pkg_info -qoa "${@}"
+	pkg_info -qao "${@}"
 	;;
 check-installed-ports)
 	tmp1="/tmp/check-listed.$$"
@@ -1084,7 +1153,7 @@ check-installed-ports)
 	) |
 	sed -e 's=^/usr/ports/==' |
 	sort -u > "${tmp1}"
-	pkg_info -qoa |
+	pkg_info -qao |
 	sort -u > "${tmp2}"
 	obsolete=`comm -23 "${tmp1}" "${tmp2}"`
 	if test "${obsolete}"
