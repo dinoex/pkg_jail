@@ -345,7 +345,7 @@ port_uptodate() {
 	fi
 }
 
-# make all packages to build and install a port
+# make all packages to build a port in a clean jail
 # Usage: make_packages_in_dir directory
 make_packages_in_dir() {
 	dir="${1}"
@@ -361,7 +361,7 @@ make_packages_in_dir() {
 	then
 		echo ""
 		echo "# checking: ${dir}"
-		cd "${dir}" || exit 65
+		cd "${dir}" || return 65
 
 		wrkdir=`make -V WRKDIRPREFIX`
 		if ! test "${wrkdir}" = ""
@@ -376,7 +376,7 @@ make_packages_in_dir() {
 
 		case "${err}" in
 		1)
-			port_uptodate.sh make
+			port_uptodate make
 			err="${?}"
 			if test "${err}" != "0"
 			then
@@ -476,9 +476,67 @@ make_packages_in_dir() {
 	fi
 }
 #
+# make all packages to build and install a port to a host
+# Usage: add_packages_in_dir directory
+add_packages_in_dir() {
+	dir="${1}"
+	if test "${dir}" = ""
+	then
+		return
+	fi
+	case "${dir}" in
+	*nonexistant)
+		return
+		;;
+	esac
+	if test ! -d "${dir}"
+	then
+		xdir="${portsdir}/${dir}"
+		if test ! -d "${xdir}"
+		then
+			echo "## dir does not exist: ${dir}"
+			return
+		fi
+		dir="${xdir}"
+	fi
+
+	echo "# checking: ${dir}"
+	cd "${dir}" || return 65
+
+	port_uptodate show > /tmp/check-package.out
+	err="${?}"
+	case "${err}" in
+	0)
+		name="$(make package-name)"
+		if test ! -e ${pkg_dbdir}/${name}/+CONTENTS
+		then
+			pkgfile="$(make -V PKGFILE)"
+			pkg_add ${pkgfile}
+		fi
+		;;
+	1)
+		port_uptodate make
+		;;
+	esac
+}
+#
+#
+# eof
+make_build_dirs() {
+	# create dirs
+	for i in data "${logdir}"
+	do
+		if test ! -d "${i}"
+		then
+			mkdir "${i}"
+		fi
+	done
+}
+#
 # inform usage
 usage() {
 	echo "Usage: ${0##*/}: make-packages [port] [...]" >&2
+	echo "Usage: ${0##*/}: add-packages [port] [...]" >&2
 	exit 64
 }
 #
@@ -499,15 +557,6 @@ pkg_dbdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_DBDIR)"
 #
 case "${1}" in
 make-packages)
-	# create dirs
-	for i in data "${logdir}"
-	do
-		if test ! -d "${i}"
-		then
-			mkdir "${i}"
-		fi
-	done
-	#
 	defaultdata="data/make-packages.$(hostname)"
 	if test ! -f "${defaultdata}"
 	then
@@ -524,6 +573,7 @@ make-packages)
 		echo "error in path: ${0}" >&2
 		exit 64
 	fi
+	make_build_dirs
 	for i in "${@}"
 	do
 		if test -f "${i}"
@@ -534,6 +584,32 @@ make-packages)
 			done
 		else
 			make_packages_in_dir "${i}"
+		fi
+	done
+	;;
+add-packages)
+	shift
+	if test "${#}" -lt 1
+	then
+		if test ! -f "${defaultdata}"
+		then
+			usage
+		fi
+		exec /bin/sh ${0} add-packages "${defaultdata}"
+		echo "error in path: ${0}" >&2
+		exit 64
+	fi
+	make_build_dirs
+	for i in "${@}"
+	do
+		if test -f "${i}"
+		then
+			for dir in `grep -v ^# ${i}`
+			do
+				add_packages_in_dir "${dir}"
+			done
+		else
+			add_packages_in_dir "${i}"
 		fi
 	done
 	;;
