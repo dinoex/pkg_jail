@@ -892,6 +892,7 @@ usage() {
 	echo "Usage: ${0##*/}: clean-distfiles" >&2
 	echo "Usage: ${0##*/}: fetch-distfiles" >&2
 	echo "Usage: ${0##*/}: dependency-update" >&2
+	echo "Usage: ${0##*/}: list-installed-ports" >&2
 	echo "Usage: ${0##*/}: cvsup" >&2
 	echo "Usage: ${0##*/}: full-update-jail [retry]" >&2
 	exit 64
@@ -1043,6 +1044,10 @@ clean-distfiles)
 	;;
 dependency-update)
 	dependency_update
+	;;
+list-installed-ports)
+	shift
+	pkg_info -qoa "${@}"
 	;;
 cvsup)
 	installed=`pkg_info -qao | grep cvsup`
