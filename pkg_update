@@ -132,8 +132,8 @@ port_uptodate() {
 	case "$1" in
 	show*|make*)
 		base="${portsdir}/$(make -V PKGORIGIN)"
-		base1="$(pwd)"
-		base2="$(cd ${base} && pwd)"
+		base1=`pwd`
+		base2=`cd "${base}" && pwd`
 		if test ! "${base1}" = "${base2}"
 		then
 			echo "# WARNING: PKGORIGIN=${base2} does not match ${base1}"
@@ -513,7 +513,7 @@ add_packages_in_dir() {
 		name=`make -V PKGNAME`
 		if test ! -e ${pkg_dbdir}/${name}/+CONTENTS
 		then
-			pkgfile="$(make -V PKGFILE)"
+			pkgfile=`make -V PKGFILE`
 			pkg_add ${pkgfile}
 		fi
 		;;
@@ -567,7 +567,7 @@ install_packages_in_dir() {
 	then
 		return
 	fi
-	pkg_file="$(make -V PKGFILE)"
+	pkg_file=`make -V PKGFILE`
 	if test -f "${pkg_file}"
 	then
 		echo "pkg_add ${pkg_file}"
@@ -609,7 +609,7 @@ show_packages_in_dir() {
 	then
 		return
 	fi
-	pkg_file="$(make -V PKGFILE)"
+	pkg_file=`make -V PKGFILE`
 	if test -f "${pkg_file}"
 	then
 		echo "pkg_add ${pkg_file}"
@@ -651,7 +651,7 @@ show_missing_packages_in_dir() {
 	then
 		return
 	fi
-	pkg_file="$(make -V PKGFILE)"
+	pkg_file=`make -V PKGFILE`
 	if test -f "${pkg_file}"
 	then
 		return
@@ -707,7 +707,7 @@ clean_package_all() {
 	for i in *
 	do
 		# ist this package up to date?
-		origin="$(pkg_info -q -o ${i})"
+		origin=`pkg_info -q -o ${i}`
 		if test "${origin}" = ""
 		then
 			echo "${i}: missing origin"
@@ -721,7 +721,7 @@ clean_package_all() {
 			move_away ${i}
 			continue
 		fi
-		pnew="$(cd "${depdir}" && make -V PKGFILE)"
+		pnew=`cd "${depdir}" && make -V PKGFILE`
 		if test ! "${pnew}" = "${pkgall}/${i}"
 		then
 			if test ! "${pnew}" = ""
@@ -744,7 +744,7 @@ clean_package_all() {
 			then
 				#
 				# find matching port directory (origin)
-				origin="$(pkg_info -q -o ${pmade})"
+				origin=`pkg_info -q -o ${pmade}`
 				if test "${origin}" = ""
 				then
 					echo "${i}: missing origin"
@@ -758,7 +758,7 @@ clean_package_all() {
 					move_away ${i}
 					break
 				fi
-				pnew="$(cd "${depdir}"; make -V PKGFILE)"
+				pnew=`cd "${depdir}"; make -V PKGFILE`
 				if test "${pnew}" = "${pkgall}/${pmade}"
 				then
 					if test "${pmade}" -nt "${ptarget}"
@@ -884,10 +884,10 @@ dependency_update() {
 		while read key depend
 		do
 #			echo "${find} needs ${depend}"
-			dir="$(pkg_info -o -q ${depend} 2>/dev/null)"
+			dir=`pkg_info -o -q ${depend} 2>/dev/null`
 			if test "${dir}" = ""
 			then
-				dir="$(pkg_info -o -q ${find})"
+				dir=`pkg_info -o -q ${find}`
 				pkg="${depend%%-[0-9]*}"
 				if test ! -d "${portsdir}/${dir}"
 				then
@@ -900,8 +900,8 @@ dependency_update() {
 					then
 						continue
 					fi
-					neu="$( cd "${depdir}" && make -V PKGNAME )"
-					dirneu="$(pkg_info -o -q ${neu} 2>/dev/null)"
+					neu=`cd "${depdir}" && make -V PKGNAME`
+					dirneu=`pkg_info -o -q "${neu}" 2>/dev/null`
 					pkgneu="${neu%%-[0-9]*}"
 					if test "${pkg}" = "${pkgneu}"
 					then
@@ -944,7 +944,7 @@ dependency_update() {
 			cat "${edit}" |
 			while read neu
 			do
-				dirneu="$(pkg_info -o -q ${neu} 2>/dev/null)"
+				dirneu=`pkg_info -o -q ${neu} 2>/dev/null`
 				if test "${dirneu}" = ""
 				then
 					echo "${find} is required by ${neu} (not installed)"
@@ -977,10 +977,9 @@ update_origin() {
 		fgrep "${origin}" "${cache}"
 		return
 	fi
-	movedto=$(
-		fgrep "${origin}|" "${portsdir}/MOVED" |
+	movedto=`fgrep "${origin}|" "${portsdir}/MOVED" |
 		tail -1 |
-		cut -d "|" -f2 )
+		cut -d "|" -f2`
 	if test "${movedto}" = ""
 	then
 		fgrep "${origin}|" "${portsdir}/MOVED"
@@ -1035,54 +1034,49 @@ fix_moved_ports() {
 	fi
 }
 #
+# check recursive for deinstall
+delete_dependent_package() {
+	installed="${1}"
+	edit="${pkg_dbdir}/${installed}/+REQUIRED_BY"
+	if test -s "${edit}"
+	then
+		cat "${edit}" |
+		while read required
+		do
+			delete_dependent_package "${required}"
+		done
+	fi
+	seenflag="${seen}/${installed}"
+	if test -e "${seenflag}"
+	then
+		return
+	fi
+	origin=`pkg_info -qo "${installed}"`
+	echo "#	${installed}	${origin}"
+	echo "pkg_delete ${installed}"
+	touch "${seenflag}"
+}
+#
 # generate orderd list to deinstall all old packages on a host
 make_deinstall_list() {
-	awk \
-		-v HOSTNAME="${hostname}" \
-		-v PORTSDIR="${portsdir}" \
-		-v PKG_DBDIR="${pkg_dbdir}" \
-	'
-BEGIN {
-	TMP="/tmp/pkg_dirty"
-	ERRDIR="/tmp"
-	print "#!/bin/sh"
-	OFS="\t"
-}
-END {
-	system( "rm -f " TMP )
-}
-function find_dir( key ) {
-	package_dir = PKG_DBDIR "/" key "/"
-	rc = system( "grep ^@comment.ORIGIN: " package_dir "+CONTENTS > " TMP )
-	rc = getline < TMP
-	close( TMP )
-	return PORTSDIR "/" substr( $0, 17 )
-}
-function file_depends( key, found, package_dir, control, rc ) {
-	found = 0
-	package_dir = PKG_DBDIR "/" key "/"
-	control = package_dir "+REQUIRED_BY"
-	while ( ( rc = getline < control ) > 0 ) {
-		required = $1
-		found ++
-		found += file_depends( required )
-	}
-	close( control )
-	line = "pkg_delete " key
-	if ( SEEN[ line ] == "" ) {
-		print "#\t" key "\t" find_dir( key )
-		print line
-		SEEN[ line ] = 1
-	}
-	return found
-}
-# ORBit-0.5.8                 <   needs updating (port has 0.5.8_1)
-# agenda-gnupg-1.0.6          ?   unknown in index
-$2 == "<" {
-	port_delete = $1
-	file_depends( port_delete )
-}
-' "${cache}" > "${deinstall}"
+	if test ! -d "${seen}"
+	then
+		mkdir "${seen}"
+	fi
+	rm -f "${seen}/*"
+	(
+		echo "#!/bin/sh"
+		cat "${cache}" |
+		while read installed flag status origin
+		do
+			case "${flag}" in
+			'<')
+				delete_dependent_package "${installed}"
+				;;
+			esac
+		done
+	) > "${deinstall}"
+	rm -f "${seen}/*"
 }
 #
 # inform usage
@@ -1092,6 +1086,7 @@ usage() {
 	echo "    ${0##*/}: add-packages [port] [...]" >&2
 	echo "    ${0##*/}: install-packages [port] [...]" >&2
 	echo "    ${0##*/}: show-packages [port] [...]" >&2
+	echo "    ${0##*/}: show-missing-packages [port] [...]" >&2
 	echo "    ${0##*/}: clean-packages" >&2
 	echo "    ${0##*/}: clean-distfiles" >&2
 	echo "    ${0##*/}: fetch-distfiles" >&2
@@ -1100,8 +1095,8 @@ usage() {
 	echo "    ${0##*/}: list-installed-ports" >&2
 	echo "    ${0##*/}: show-version-list" >&2
 	echo "    ${0##*/}: make-version-list" >&2
+	echo "    ${0##*/}: make-deinstall-list" >&2
 	echo "    ${0##*/}: show-deinstall-list" >&2
-	echo "    ${0##*/}: show-missing-packages" >&2
 	echo "    ${0##*/}: show-missing-reinstall" >&2
 	echo "    ${0##*/}: show-missing-installed" >&2
 	echo "    ${0##*/}: reinstall" >&2
@@ -1123,20 +1118,21 @@ hostnames=`hostname -s`
 localdir="/usr/ports/local/update"
 logdir="${PKG_UPDATE_LOGDIR:-${localdir}/log-${hostnames}}"
 hostname=`hostname`
-depends="${localdir}/data/depends.$(hostname)"
+depends="${localdir}/data/depends.${hostname}"
 cache="${localdir}/version-list.${hostname}"
 deinstall="${localdir}/deinstall.${hostname}"
 easyupdate="${localdir}/easyupdate.${hostname}"
+seen="/tmp/deinstall-seen"
 #
 #	get all path information from /etc/make.conf
 nowarn="COMMENT=0 CATEGORIES=0 PORTVERSION=0"
-portsdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PORTSDIR)"
-pkg_dbdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_DBDIR)"
-packages="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PACKAGES)"
+portsdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PORTSDIR`
+pkg_dbdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_DBDIR`
+packages=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PACKAGES`
 #
 case "${1}" in
 make-packages)
-	defaultdata="data/make-packages.$(hostname)"
+	defaultdata="data/make-packages.${hostname}"
 	if test ! -f "${defaultdata}"
 	then
 		echo "${defaultdata}: no such file, make-packages aborted."  >&2
@@ -1170,7 +1166,7 @@ add-packages)
 	shift
 	if test "${#}" -lt 1
 	then
-		defaultdata="data/install-packages.$(hostname)"
+		defaultdata="data/install-packages.${hostname}"
 		if test ! -f "${defaultdata}"
 		then
 			usage
@@ -1197,7 +1193,7 @@ install-packages)
 	shift
 	if test "${#}" -lt 1
 	then
-		defaultdata="data/install-packages.$(hostname)"
+		defaultdata="data/install-packages.${hostname}"
 		if test ! -f "${defaultdata}"
 		then
 			usage
@@ -1223,7 +1219,7 @@ show-packages)
 	shift
 	if test "${#}" -lt 1
 	then
-		defaultdata="data/install-packages.$(hostname)"
+		defaultdata="data/install-packages.${hostname}"
 		if test ! -f "${defaultdata}"
 		then
 			usage
@@ -1249,7 +1245,7 @@ show-missing-packages)
 	shift
 	if test "${#}" -lt 1
 	then
-		defaultdata="data/install-packages.$(hostname)"
+		defaultdata="data/install-packages.${hostname}"
 		if test ! -f "${defaultdata}"
 		then
 			usage
@@ -1275,7 +1271,7 @@ fetch-distfiles)
 	shift
 	if test "${#}" -lt 1
 	then
-		defaultdata="data/make-packages.$(hostname)"
+		defaultdata="data/make-packages.${hostname}"
 		if test ! -f "${defaultdata}"
 		then
 			usage
@@ -1298,7 +1294,7 @@ fetch-distfiles)
 	done
 	;;
 clean-packages)
-	ext="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_SUFX)"
+	ext=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_SUFX`
 	pkgall="${packages}/All"
 	pkgold="${packages}/Old"
 	#
@@ -1307,7 +1303,7 @@ clean-packages)
 	;;
 clean-distfiles)
 	old="${distdir}/Old"
-	distdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V DISTDIR)"
+	distdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V DISTDIR`
 	#
 	clean_distfiles
 	;;
@@ -1378,7 +1374,7 @@ clean)
 check-installed-ports)
 	tmp1="/tmp/check-listed.$$"
 	tmp2="/tmp/check-installed.$$"
-	defaultdata="data/install-packages.$(hostname)"
+	defaultdata="data/install-packages.${hostname}"
 	shift
 	if test "${#}" -lt 1
 	then
