@@ -1,20 +1,46 @@
 #!/bin/sh
+#       $Id$
 #
-hostname=`hostname -s`
-localdir="/usr/ports/local/update"
-logdir="${localdir}/log-${hostname}"
-defaultdata="data/make-packages.$(hostname)"
+# Copyright (c) 2001-2006
+#       by Dirk Meyer, All rights reserved.
+#       Im Grund 4, 34317 Habichtswald, Germany
+#       Email: dirk.meyer@dinoex.sub.org
 #
-nowarn="COMMENT=0 CATEGORIES=0 PORTVERSION=0"
-portsdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PORTSDIR)"
-pkg_dbdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_DBDIR)"
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+# 3. Neither the name of the author nor the names of any co-contributors
+#    may be used to endorse or promote products derived from this software
+#    without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+#
+# -------------------------------------------------------------------------
+#
 #
 
+# clean all data that is listed in mtree
+# Usage: cleanmtree prefix local-temp-directory mtree-file
 cleanmtree() {
 	prefix="${1}"
 	tmplocal="${2}"
 	mkdir "${tmplocal}"
-	mtree -duqn -p "${tmplocal}" -f $3 >> /dev/null
+	mtree -duqn -p "${tmplocal}" -f "${3}" >> /dev/null
 	find -d "${tmplocal}" -type d |
 	sed "s=${tmplocal}==" |
 	while read name
@@ -27,16 +53,7 @@ cleanmtree() {
 	done
 }
 
-plist_links() {
-	while read linkname
-	do
-#		linktarget=`readlink "${linkname}"`
-#		echo "@exec ln -s ${linktarget} %D/${linkname}"
-#		echo "@unexec rm -f %D/${linkname}"
-		echo "${linkname}"
-	done
-}
-
+# fiter stdin for dirs already in pkg-plist of a port
 plist_dir() {
 	while read dir
 	do
@@ -56,6 +73,7 @@ plist_dir() {
 	done
 }
 
+# generate sed command file to reverse PLIST_SUB
 plist_sub() {
 	subs="${1}"
 	echo "s=$(make -V PREFIX)/==g" > "${subs}"
@@ -98,23 +116,7 @@ plist_sub() {
 }' >> "${subs}"
 }
 
-# create dirs
-for i in data "${logdir}"
-do
-	if test ! -d "${i}"
-	then
-		mkdir "${i}"
-	fi
-done
-
-if test ! -f "${defaultdata}"
-then
-	echo "Danger! This will delete all packages and /usr/local" >&2
-	exit 65
-fi
-
-#
-action_dir() {
+make_packages_in_dir() {
 	dir="${1}"
 	if test "${dir}" = ""
 	then
@@ -152,11 +154,6 @@ action_dir() {
 
 			make deinstall
 			pkg_delete ${pkg_dbdir}/* >/dev/null 2>&1
-#			make clean |
-#			while read dummy1 text1 text2 cleanname
-#			do
-#				pkg_delete -f "${cleanname}"
-#			done
 			if test -f ${localdir}/data/badfiles
 			then
 				grep -v "^#" ${localdir}/data/badfiles |
@@ -199,7 +196,6 @@ action_dir() {
 				find -d /usr/local -type f |
 				sed -f "${subs}" >> "${name}"
 				find -d /usr/local -type l |
-				plist_links |
 				sed -f "${subs}" >> "${name}"
 				cleanmtree /usr/local /tmp/local \
 					/etc/mtree/BSD.local.dist
@@ -215,7 +211,6 @@ action_dir() {
 				find -d /usr/X11R6 -type f |
 				sed -f "${subs}" >> "${name}"
 				find -d /usr/X11R6 -type l |
-				plist_links |
 				sed -f "${subs}" >> "${name}"
 				cleanmtree /usr/X11R6 /tmp/X11R6 \
 					/etc/mtree/BSD.x11-4.dist
@@ -250,29 +245,70 @@ action_dir() {
 	fi
 }
 #
-if test "${#}" -lt 1
+# inform usage
+usage() {
+	echo "Usage: ${0##*/}: make-packages [port] [...]" >&2
+	exit 64
+}
+#
+# check empty call
+if test $# -lt 1
 then
+	usage
+fi
+#
+hostname=`hostname -s`
+localdir="/usr/ports/local/update"
+logdir="${PKG_UPDATE_LOGDIR:-${localdir}/log-${hostname}}"
+#
+nowarn="COMMENT=0 CATEGORIES=0 PORTVERSION=0"
+portsdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PORTSDIR)"
+pkg_dbdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_DBDIR)"
+#
+case "${1}" in
+make-packages)
+	# create dirs
+	for i in data "${logdir}"
+	do
+		if test ! -d "${i}"
+		then
+			mkdir "${i}"
+		fi
+	done
+	#
+	defaultdata="data/make-packages.$(hostname)"
 	if test ! -f "${defaultdata}"
 	then
-		echo "Usage: ${0} [port]" >&2
+		echo "${defaultdata}: no such file, make-packages aborted."  >&2
+		echo "!!WARNNING!! Such a file should only exist for your build jail" >&2
+		echo "!!WARNNING!! This will uninstall all packages." >&2
+		echo "!!WARNNING!! This will delete your config in /usr/local." >&2
 		exit 64
 	fi
-	exec /bin/sh $0 "${defaultdata}"
-	echo "error in path: ${0}" >&2
-	exit 64
-fi
-for i in "${@}"
-do
-	if test -f "${i}"
+	shift
+	if test "${#}" -lt 1
 	then
-		for dir in `grep -v ^# ${i}`
-		do
-			action_dir "${dir}"
-		done
-	else
-		action_dir "${i}"
+		exec /bin/sh $0 make-packages "${defaultdata}"
+		echo "error in path: ${0}" >&2
+		exit 64
 	fi
-done
+	for i in "${@}"
+	do
+		if test -f "${i}"
+		then
+			for dir in `grep -v ^# ${i}`
+			do
+				make_packages_in_dir "${dir}"
+			done
+		else
+			make_packages_in_dir "${i}"
+		fi
+	done
+	;;
+*)
+	usage
+esac
+#
 exit 0
 #
 # eof
