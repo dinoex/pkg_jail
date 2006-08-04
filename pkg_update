@@ -1335,7 +1335,33 @@ make-deinstall-list)
 show-deinstall-list)
 	;;
 show-missing-reinstall)
-	/bin/sh "${0}" show-missing-packages `grep '^#.*[\010]' "${deinstall}" | cut -d "	" -f3`
+	grep '^#.*[\010]' "${deinstall}" |
+	while read dummy package origin
+	do
+		if test ! -d "${origin}"
+		then
+			echo "error   ${package} has lost portsdir"
+			continue
+		fi
+		pkgname=`cd "${origin}" && make -V PKGNAME`
+		if test -d "${pkg_dbdir}/${pkgname}" 
+		then
+			echo "new     ${package} installed"
+			continue
+		fi
+		if test -d "${pkg_dbdir}/${package}" 
+		then
+			echo "old     ${package} installed"
+			continue
+		fi
+		pkgfile=`cd "${origin}" && make -V PKGFILE`
+		if test ! -f "${pkgfile}"
+		then
+			echo "        ${package} no new package"
+			continue
+		fi
+		echo "        ${package} not installed"
+	done
 	;;
 show-missing-installed)
 	make_version_list
