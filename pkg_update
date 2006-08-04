@@ -692,12 +692,79 @@ clean_package_links() {
 	done
 }
 #
+# check fort obsolte distfiles
+# Usage: clean_distfiles
+clean_distfiles() {
+	rm -f /tmp/all-distfiles
+	find /tmp/all-distinfo -type f -mtime +1 -exec rm -f {} \;
+	if ! test -f /tmp/all-distinfo
+	then
+		echo "Processing ... distinfo"
+		find ${portsdir}/ -type f -name "distinfo*" -exec \
+		cut -d " " -f2 "{}" ";" |
+		tr -d '()' |
+		sort -u > /tmp/all-distinfo
+	fi
+	if ! test -f /tmp/all-distfiles
+	then
+		echo "Processing ... distfiles"
+		find ${distdir}/ -type f |
+		grep -v "${old}/" |
+		sed -e "s=${distdir}/==" |
+		sort -u > /tmp/all-distfiles
+	fi
+	echo "Processing ... differences"
+	comm -13 /tmp/all-distinfo /tmp/all-distfiles |
+	while read name
+	do
+		tmp="/${name}"
+		dir="${tmp%/*}"
+		echo "${dir}" "${name}"
+		if test ! -d "${old}${dir}"
+		then
+			echo \
+			mkdir -p "${old}${dir}"
+			mkdir -p "${old}${dir}"
+		fi
+		if test -f "${old}/${name}"
+		then
+			if ! diff -qs "${distdir}/${name}" "${old}/${name}"
+			then
+				for i in `jot 99`
+				do
+					if test -f "${old}/${name}.${i}"
+					then
+						continue
+					fi
+					echo \
+					mv -i "${distdir}/${name}" "${old}/${name}.${i}"
+					mv -i "${distdir}/${name}" "${old}/${name}.${i}"
+					break
+				done
+				if test -f "${distdir}/${name}"
+				then
+					echo "ignored: ${distdir}/${name}"
+				fi
+				continue
+			fi
+			echo \
+			rm -f "${distdir}/${name}"
+			rm -f "${distdir}/${name}"
+			continue
+		fi
+		echo \
+		mv -i "${distdir}/${name}" "${old}/${name}"
+		mv -i "${distdir}/${name}" "${old}/${name}"
+	done
+}
+#
 # inform usage
 usage() {
 	echo "Usage: ${0##*/}: make-packages [port] [...]" >&2
 	echo "Usage: ${0##*/}: add-packages [port] [...]" >&2
 	echo "Usage: ${0##*/}: install-packages [port] [...]" >&2
 	echo "Usage: ${0##*/}: clean-packages" >&2
+	echo "Usage: ${0##*/}: clean-distfiles" >&2
 	exit 64
 }
 
@@ -806,12 +873,17 @@ install-packages)
 clean-packages)
 	packages="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PACKAGES)"
 	ext="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_SUFX)"
-	#	the directorys with contain the package files
 	pkgall="${packages}/All"
 	pkgold="${packages}/Old"
 	#
 	clean_package_all
 	clean_package_links
+	;;
+clean-distfiles)
+	old="${distdir}/Old"
+	distdir="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V DISTDIR)"
+	#
+	clean_distfiles
 	;;
 *)
 	usage
