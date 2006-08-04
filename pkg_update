@@ -520,8 +520,7 @@ add_packages_in_dir() {
 	esac
 }
 #
-#
-# eof
+# make directories for logfiles and config
 make_build_dirs() {
 	# create dirs
 	for i in data "${logdir}"
@@ -533,10 +532,58 @@ make_build_dirs() {
 	done
 }
 #
+# install the existing packages form a port to a host
+# Usage: add_packages_in_dir directory
+install_packages_in_dir() {
+	dir="${1}"
+	if test "${dir}" = ""
+	then
+		return
+	fi
+	case "${dir}" in
+	*nonexistant)
+		return
+		;;
+	esac
+	if test ! -d "${dir}"
+	then
+		xdir="${portsdir}/${dir}"
+		if test ! -d "${xdir}"
+		then
+			echo "## dir does not exist: ${dir}"
+			return
+		fi
+		dir="${xdir}"
+	fi
+
+#	echo "# checking: ${dir}"
+	cd "${dir}" || return 65
+	name=`make package-name`
+	if test -e ${pkg_dbdir}/${name}/+CONTENTS
+	then
+		return
+	fi
+	pkg_file="$(make -V PKGFILE)"
+	if test -f "${pkg_file}"
+	then
+		echo "pkg_add ${pkg_file}"
+		case "${2}" in
+		show)
+			return
+			;;
+		esac
+		pkg_add "${pkg_file}"
+		return
+	fi
+	echo "## package does not exist: ${pkg_file}"
+	echo "(cd ${dir} && make package)"
+}
+#
 # inform usage
 usage() {
 	echo "Usage: ${0##*/}: make-packages [port] [...]" >&2
 	echo "Usage: ${0##*/}: add-packages [port] [...]" >&2
+	echo "Usage: ${0##*/}: install-packages [port] [...]" >&2
 	exit 64
 }
 #
@@ -591,6 +638,7 @@ add-packages)
 	shift
 	if test "${#}" -lt 1
 	then
+		defaultdata="data/install-packages.$(hostname)"
 		if test ! -f "${defaultdata}"
 		then
 			usage
@@ -610,6 +658,32 @@ add-packages)
 			done
 		else
 			add_packages_in_dir "${i}"
+		fi
+	done
+	;;
+install-packages)
+	shift
+	if test "${#}" -lt 1
+	then
+		defaultdata="data/install-packages.$(hostname)"
+		if test ! -f "${defaultdata}"
+		then
+			usage
+		fi
+		exec /bin/sh ${0} install-packages "${defaultdata}"
+		echo "error in path: ${0}" >&2
+		exit 64
+	fi
+	for i in "${@}"
+	do
+		if test -f "${i}"
+		then
+			for dir in `grep -v ^# ${i}`
+			do
+				install_packages_in_dir "${dir}"
+			done
+		else
+			install_packages_in_dir "${i}"
 		fi
 	done
 	;;
