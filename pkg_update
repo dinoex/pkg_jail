@@ -1711,6 +1711,7 @@ list-installed-ports)
 	;;
 show-version-list)
 	make_version_list
+	cat "${cache}"
 	;;
 make-version-list)
 	rm -f "${cache}"
