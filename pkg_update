@@ -1381,9 +1381,14 @@ easy_dependent_package() {
 		echo "# missing package: ${pkgfile}"
 		set_fail_count up
 	fi
-	mv -f "${easyremake}" "${easyremaketmp}"
-	echo "${remake}" > "${easyremake}"
-	cat "${easyremaketmp}" >> "${easyremake}"
+	if test -f "${easyremake}"
+	then
+		mv -f "${easyremake}" "${easyremaketmp}"
+		echo "${remake}" > "${easyremake}"
+		cat "${easyremaketmp}" >> "${easyremake}"
+	else
+		echo "${remake}" > "${easyremake}"
+	fi
 	echo "pkg_delete ${installed}" >> "${easyclean}"
 	if test -f "${failed}/${pkgname}"
 	then
@@ -1474,7 +1479,7 @@ usage() {
 	echo "    ${0##*/} show-missing-packages [port] [...]" >&2
 	echo "    ${0##*/} clean-packages" >&2
 	echo "    ${0##*/} clean-distfiles" >&2
-	echo "    ${0##*/} fetch-distfiles" >&2
+	echo "    ${0##*/} fetch-distfiles [port] [...]" >&2
 	echo "    ${0##*/} dependency-update" >&2
 	echo "    ${0##*/} fix-moved-ports" >&2
 	echo "    ${0##*/} list-installed-ports" >&2
