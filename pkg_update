@@ -1307,7 +1307,7 @@ set_fail_count() {
 #
 # check dependency for easy deinstall
 easy_required_package() {
-	local installed contents pkgname deporigin
+	local installed contents pkgname deporigin movedto
 	installed="${1}"
 	if test -e "${good}/${installed}"
 	then
@@ -1323,7 +1323,8 @@ easy_required_package() {
 	while read comment deporigin
 	do
 		deporigin="${deporigin#DEPORIGIN:}"
-		pkgname=`cd "${portsdir}/${deporigin}" && make -V PKGNAME`
+		movedto=`get_new_origin "${deporigin}"`
+		pkgname=`cd "${portsdir}/${movedto}" && make -V PKGNAME`
 		if test -e "${seen}/${pkgname}"
 		then
 			continue
