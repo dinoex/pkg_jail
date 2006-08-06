@@ -1763,7 +1763,8 @@ show-missing-installed)
 	/bin/sh "${0}" show-missing-packages `pkg_info -qao`
 	;;
 reinstall)
-	exec /bin/sh "${0}" install-packages "${deinstall}"
+	exec /bin/sh "${0}" install-packages \
+		`grep '^#.*[\010]' "${deinstall}" | cut -d "	" -f3`
 	echo "error in path: ${0}" >&2
 	exit 64
 	;;
