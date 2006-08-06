@@ -150,19 +150,19 @@ port_uptodate() {
 			echo "# WARNING: using ${base}"
 		fi
 		echo "## ${base}: port_uptodate $1 "
-		bname=`make -V PKGNAME`
+		pkgname=`make -V PKGNAME`
 		dir=`make -V PORTDIRNAME`
 		pkgfile=`make -V PKGFILE`
-		name="${bname}"
+		mainpkg="${pkgname}"
 		for=""
 		found=""
 		lastpkgfile=""
 		rm -f "${tmpupdated}" "${tmpfailed}"
 		while test "${found}" = ""
 		do
-			if test -e ${pkg_dbdir}/${name}/+CONTENTS
+			if test -e ${pkg_dbdir}/${pkgname}/+CONTENTS
 			then
-				echo "#installed:	${name} from ${dir}"
+				echo "#installed:	${pkgname} from ${dir}"
 				found="1"
 				break
 			fi
@@ -203,10 +203,10 @@ port_uptodate() {
 			continue
 		fi
 		log=`echo "${dir}" | sed -e 's=/=,=g'`
-		name=`cd ${fulldir} && make -V PKGNAME`
-		if test -e ${pkg_dbdir}/${name}/+CONTENTS
+		pkgname=`cd ${fulldir} && make -V PKGNAME`
+		if test -e ${pkg_dbdir}/${pkgname}/+CONTENTS
 		then
-			echo "#installed:	${name} from ${dir}${for}"
+			echo "#installed:	${pkgname} from ${dir}${for}"
 			continue
 		fi
 		pkgfile=`cd ${fulldir} && make -V PKGFILE`
@@ -227,9 +227,9 @@ port_uptodate() {
 					# check dependend package is ok!
 					( cd ${fulldir} && port_uptodate $1+ )
 					touch "${logdir}/check,${log}"
-					if test -e ${pkg_dbdir}/${name}/+CONTENTS
+					if test -e ${pkg_dbdir}/${pkgname}/+CONTENTS
 					then
-						echo "#installed:	${name} from ${dir}${for}"
+						echo "#installed:	${pkgname} from ${dir}${for}"
 						continue
 					fi
 				fi
@@ -244,37 +244,37 @@ port_uptodate() {
 					echo "# dependend package newer: ${pkgfile} ${lastpkgfile}" >> ${tmpupdated}
 				fi
 			fi
-			echo "#existing package:	${name} from ${dir}${for}"
+			echo "#existing package:	${pkgname} from ${dir}${for}"
 			echo "pkg_add ${pkgfile}"
 			case "$1" in
 			make*)
 				pkg_add ${pkgfile}
-				if test -e ${pkg_dbdir}/${name}/+CONTENTS
+				if test -e ${pkg_dbdir}/${pkgname}/+CONTENTS
 				then
 					continue
 				fi
-				echo "pkg_add ${pkgfile} failed, no ${name}!"
-				echo "=== dependend package failed to add: ${pkgfile} ${name}" >&2
-				echo "=== dependend package failed to add: ${pkgfile} ${name}" >> ${tmpfailed}
-				echo "=== dependend package failed to add: ${pkgfile} ${name}" >> ${logdir}/err,${log}
+				echo "pkg_add ${pkgfile} failed, no ${pkgname}!"
+				echo "=== dependend package failed to add: ${pkgfile} ${pkgname}" >&2
+				echo "=== dependend package failed to add: ${pkgfile} ${pkgname}" >> ${tmpfailed}
+				echo "=== dependend package failed to add: ${pkgfile} ${pkgname}" >> ${logdir}/err,${log}
 				break
 				;;
 			esac
 			continue
 		fi
-		echo "# missing package: ${name} from ${dir}"
-		echo "# missing package: ${name} from ${dir}" >> ${tmpupdated}
+		echo "# missing package: ${pkgname} from ${dir}"
+		echo "# missing package: ${pkgname} from ${dir}" >> ${tmpupdated}
 		case "$1" in
 		make*)
 			echo "cd ${fulldir} && port_uptodate $1+"
 			( cd ${fulldir} && port_uptodate $1+ )
-			if test -e ${pkg_dbdir}/${name}/+CONTENTS
+			if test -e ${pkg_dbdir}/${pkgname}/+CONTENTS
 			then
 				continue
 			fi
-			echo "=== package ${name} error dependency" >&2
-			echo "=== package ${name} error dependency" >> ${tmpfailed}
-			echo "=== package ${name} error dependency" >> ${logdir}/err,${log}
+			echo "=== package ${pkgname} error dependency" >&2
+			echo "=== package ${pkgname} error dependency" >> ${tmpfailed}
+			echo "=== package ${pkgname} error dependency" >> ${logdir}/err,${log}
 			break
 			;;
 		esac
@@ -285,7 +285,7 @@ port_uptodate() {
 		dir="${fulldir##${portsdir}/}"
 		dir="${dir##${localdir}/}"
 		echo "=====================================" >&2
-		echo "=== package ${name} missing dependency" >&2
+		echo "=== package ${pkgname} missing dependency" >&2
 		cat ${tmpfailed} >&2
 		echo "=====================================" >&2
 		if test "${dir}" != ""
@@ -306,7 +306,7 @@ port_uptodate() {
 		case "$1" in
 		make*)
 			( cd ${base} && make package </dev/null >> ${logdir}/err,${log} 2>&1 )
-			if test -e "${pkg_dbdir}/${name}/+CONTENTS"
+			if test -e "${pkg_dbdir}/${pkgname}/+CONTENTS"
 			then
 				pkgfile=`cd ${base} && make -V PKGFILE`
 				if test -e "${pkgfile}"
@@ -315,28 +315,28 @@ port_uptodate() {
 					( cd ${base} && make clean NOCLEANDEPENDS=yes )
 				else
 					echo "=====================================" >&2
-					echo "=== package ${name} was not build" >&2
+					echo "=== package ${pkgname} was not build" >&2
 					echo "=====================================" >&2
-					echo "=== package ${name} was not build" \
+					echo "=== package ${pkgname} was not build" \
 						>> ${logdir}/err,${log}
 					return 2
 				fi
 			else
 				echo "=====================================" >&2
-				echo "=== package ${name} was not installed" >&2
+				echo "=== package ${pkgname} was not installed" >&2
 				echo "=====================================" >&2
-				echo "=== package ${name} was not installed" \
+				echo "=== package ${pkgname} was not installed" \
 					>> ${logdir}/err,${log}
 				return 2
 			fi
 			;;
 		show*)
-			echo "if test -e \"${pkg_dbdir}/${bname}/+CONTENTS\""
+			echo "if test -e \"${pkg_dbdir}/${mainpkg}/+CONTENTS\""
 			echo "then"
 			echo "	mv -f \"${logdir}/err,${log}\" \"${logdir}/build,${log}\""
 			echo "else"
 			echo "  echo \"=====================================\" >&2"
-			echo "  echo \"=== package ${name} was not build\" >&2"
+			echo "  echo \"=== package ${pkgname} was not build\" >&2"
 			echo "  echo \"=====================================\" >&2"
 			echo "  exit 2"
 			echo "fi"
@@ -422,38 +422,38 @@ make_packages_in_dir() {
 					fi
 				done
 			fi
-			name="${logdir}/plist,$(make -V PKGORIGIN | sed -e 's=/=,=')"
-			subs="${name}.sed"
+			plistlog="${logdir}/plist,$(make -V PKGORIGIN | sed -e 's=/=,=')"
+			subs="${plistlog}.sed"
 			plist_sub "${subs}"
-			echo -n "" > "${name}"
+			echo -n "" > "${plistlog}"
 			if test -d /root/GNUstep
 			then
-				find -d /root/GNUstep -type f >> "${name}"
+				find -d /root/GNUstep -type f >> "${plistlog}"
 				find -d /root/GNUstep -type d |
-				sed -e 's=^=@dirrm =' >> "${name}"
+				sed -e 's=^=@dirrm =' >> "${plistlog}"
 				rm -rf /root/GNUstep
 			fi
 			if test -d /usr/local
 			then
 				find -d /usr/local -type f |
-				sed -f "${subs}" >> "${name}"
+				sed -f "${subs}" >> "${plistlog}"
 				find -d /usr/local -type l |
-				sed -f "${subs}" >> "${name}"
+				sed -f "${subs}" >> "${plistlog}"
 				cleanmtree /usr/local /tmp/local \
 					/etc/mtree/BSD.local.dist
 				if test -d /usr/local
 				then
 					find -d /usr/local -type d |
 					sed -f "${subs}" |
-					plist_dir >> "${name}"
+					plist_dir >> "${plistlog}"
 				fi
 			fi
 			if test -d /usr/X11R6
 			then
 				find -d /usr/X11R6 -type f |
-				sed -f "${subs}" >> "${name}"
+				sed -f "${subs}" >> "${plistlog}"
 				find -d /usr/X11R6 -type l |
-				sed -f "${subs}" >> "${name}"
+				sed -f "${subs}" >> "${plistlog}"
 				cleanmtree /usr/X11R6 /tmp/X11R6 \
 					/etc/mtree/BSD.x11-4.dist
 				cleanmtree /usr/X11R6 /tmp/X11R6 \
@@ -462,13 +462,13 @@ make_packages_in_dir() {
 				then
 					find -d /usr/X11R6 -type d |
 					sed -f "${subs}" |
-					plist_dir >> "${name}"
+					plist_dir >> "${plistlog}"
 				fi
 			fi
 			rm -f "${subs}"
-			if test ! -s "${name}"
+			if test ! -s "${plistlog}"
 			then
-				rm -f "${name}"
+				rm -f "${plistlog}"
 			fi
 			;;
 		esac
@@ -520,8 +520,8 @@ add_packages_in_dir() {
 	err="${?}"
 	case "${err}" in
 	0)
-		name=`make -V PKGNAME`
-		if test ! -e ${pkg_dbdir}/${name}/+CONTENTS
+		pkgname=`make -V PKGNAME`
+		if test ! -e ${pkg_dbdir}/${pkgname}/+CONTENTS
 		then
 			pkgfile=`make -V PKGFILE`
 			pkg_add ${pkgfile}
@@ -560,19 +560,19 @@ install_packages_in_dir() {
 
 #	echo "# checking: ${dir}"
 	cd "${dir}" || return 69
-	name=`make -V PKGNAME`
-	if test -e ${pkg_dbdir}/${name}/+CONTENTS
+	pkgname=`make -V PKGNAME`
+	if test -e ${pkg_dbdir}/${pkgname}/+CONTENTS
 	then
 		return
 	fi
-	pkg_file=`make -V PKGFILE`
-	if test -f "${pkg_file}"
+	pkgfile=`make -V PKGFILE`
+	if test -f "${pkgfile}"
 	then
-		echo "pkg_add ${pkg_file}"
-		pkg_add "${pkg_file}"
+		echo "pkg_add ${pkgfile}"
+		pkg_add "${pkgfile}"
 		return
 	fi
-	echo "## package does not exist: ${pkg_file}"
+	echo "## package does not exist: ${pkgfile}"
 	echo "(cd ${dir} && make package)"
 }
 #
@@ -602,18 +602,18 @@ show_packages_in_dir() {
 
 #	echo "# checking: ${dir}"
 	cd "${dir}" || return 69
-	name=`make -V PKGNAME`
-	if test -e ${pkg_dbdir}/${name}/+CONTENTS
+	pkgname=`make -V PKGNAME`
+	if test -e ${pkg_dbdir}/${pkgname}/+CONTENTS
 	then
 		return
 	fi
-	pkg_file=`make -V PKGFILE`
-	if test -f "${pkg_file}"
+	pkgfile=`make -V PKGFILE`
+	if test -f "${pkgfile}"
 	then
-		echo "pkg_add ${pkg_file}"
+		echo "pkg_add ${pkgfile}"
 		return
 	fi
-	echo "## package does not exist: ${pkg_file}"
+	echo "## package does not exist: ${pkgfile}"
 	echo "(cd ${dir} && make package)"
 }
 #
@@ -644,17 +644,17 @@ show_missing_packages_in_dir() {
 
 #	echo "# checking: ${dir}"
 	cd "${dir}" || return 69
-	name=`make -V PKGNAME`
-	if test -e ${pkg_dbdir}/${name}/+CONTENTS
+	pkgname=`make -V PKGNAME`
+	if test -e ${pkg_dbdir}/${pkgname}/+CONTENTS
 	then
 		return
 	fi
-	pkg_file=`make -V PKGFILE`
-	if test -f "${pkg_file}"
+	pkgfile=`make -V PKGFILE`
+	if test -f "${pkgfile}"
 	then
 		return
 	fi
-	echo "## package does not exist: ${pkg_file}"
+	echo "## package does not exist: ${pkgfile}"
 	echo "(cd ${dir} && make package)"
 }
 #
@@ -1050,8 +1050,8 @@ delete_dependent_package() {
 		return
 	fi
 	origin=`pkg_info -qo "${installed}"`
-	echo "#	${installed}	${origin}"
 	echo "pkg_delete ${installed}"
+	add_to_file "${todolist}" "${origin}"
 	touch "${seenflag}"
 }
 #
@@ -1074,7 +1074,7 @@ make_deinstall_list() {
 	rm -f "${seen}/"*
 }
 #
-# remove_from_file
+# remove_from_file file line
 remove_from_file( ) {
 	edit="${1}"
 	pattern="${2}"
@@ -1091,7 +1091,7 @@ remove_from_file( ) {
 	fi
 }
 #
-# add_to_file
+# add_to_file file line
 add_to_file( ) {
 	edit="${1}"
 	pattern="${2}"
@@ -1470,6 +1470,23 @@ make_easy_update() {
 #	awk -v HOSTNAME=${hostname} -f check-update.awk "${cache}"
 }
 #
+# parse_default
+#	global: defaultdata
+#	global: target
+parse_default() {
+	if test "${#}" -lt 1
+	then
+		defaultdata="data/install-packages.${hostname}"
+		if test ! -f "${defaultdata}"
+		then
+			usage
+		fi
+		exec /bin/sh "${0}" "${target}" "${defaultdata}"
+		echo "error in path: ${0}" >&2
+		exit 64
+	fi
+}
+#
 # inform usage
 usage() {
 	echo "Usage:" >&2
@@ -1484,13 +1501,13 @@ usage() {
 	echo "    ${0##*/} dependency-update" >&2
 	echo "    ${0##*/} fix-moved-ports" >&2
 	echo "    ${0##*/} list-installed-ports" >&2
-	echo "    ${0##*/} show-version-list" >&2
 	echo "    ${0##*/} make-version-list" >&2
+	echo "    ${0##*/} show-version-list" >&2
 	echo "    ${0##*/} make-deinstall-list" >&2
-	echo "    ${0##*/} show-deinstall-list" >&2
 	echo "    ${0##*/} show-missing-reinstall" >&2
 	echo "    ${0##*/} show-missing-installed" >&2
 	echo "    ${0##*/} reinstall" >&2
+	echo "    ${0##*/} clean-reinstall" >&2
 	echo "    ${0##*/} make-easy-update" >&2
 	echo "    ${0##*/} replace-package [port] [...]" >&2
 	echo "    ${0##*/} clean" >&2
@@ -1499,7 +1516,6 @@ usage() {
 	echo "    ${0##*/} full-update-jail [retry]" >&2
 	exit 64
 }
-
 #
 # check empty call
 if test $# -lt 1
@@ -1514,6 +1530,7 @@ hostname=`hostname`
 depends="${localdir}/data/depends.${hostname}"
 cache="${localdir}/version-list.${hostname}"
 deinstall="${localdir}/deinstall.${hostname}"
+todolist="${localdir}/data/todo.${hostname}"
 easyupdate="${localdir}/easyupdate.${hostname}"
 seen="/tmp/deinstall-seen"
 required="/tmp/required-seen"
@@ -1528,7 +1545,8 @@ portsdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PORTSDIR`
 pkg_dbdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_DBDIR`
 packages=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PACKAGES`
 #
-case "${1}" in
+target="${1}"
+case "${target}" in
 make-packages)
 	defaultdata="data/make-packages.${hostname}"
 	if test ! -f "${defaultdata}"
@@ -1540,12 +1558,7 @@ make-packages)
 		exit 64
 	fi
 	shift
-	if test "${#}" -lt 1
-	then
-		exec /bin/sh "${0}" make-packages "${defaultdata}"
-		echo "error in path: ${0}" >&2
-		exit 64
-	fi
+	parse_default
 	quiet_mkdir "${localdir}/data" "${logdir}"
 	for i in "${@}"
 	do
@@ -1562,17 +1575,8 @@ make-packages)
 	;;
 add-packages)
 	shift
-	if test "${#}" -lt 1
-	then
-		defaultdata="data/install-packages.${hostname}"
-		if test ! -f "${defaultdata}"
-		then
-			usage
-		fi
-		exec /bin/sh "${0}" add-packages "${defaultdata}"
-		echo "error in path: ${0}" >&2
-		exit 64
-	fi
+	defaultdata="data/install-packages.${hostname}"
+	parse_default
 	quiet_mkdir "${localdir}/data" "${logdir}"
 	for i in "${@}"
 	do
@@ -1589,17 +1593,8 @@ add-packages)
 	;;
 install-packages)
 	shift
-	if test "${#}" -lt 1
-	then
-		defaultdata="data/install-packages.${hostname}"
-		if test ! -f "${defaultdata}"
-		then
-			usage
-		fi
-		exec /bin/sh "${0}" install-packages "${defaultdata}"
-		echo "error in path: ${0}" >&2
-		exit 64
-	fi
+	defaultdata="data/install-packages.${hostname}"
+	parse_default
 	for i in "${@}"
 	do
 		if test -f "${i}"
@@ -1615,17 +1610,8 @@ install-packages)
 	;;
 show-packages)
 	shift
-	if test "${#}" -lt 1
-	then
-		defaultdata="data/install-packages.${hostname}"
-		if test ! -f "${defaultdata}"
-		then
-			usage
-		fi
-		exec /bin/sh "${0}" show-packages "${defaultdata}"
-		echo "error in path: ${0}" >&2
-		exit 64
-	fi
+	defaultdata="data/install-packages.${hostname}"
+	parse_default
 	for i in "${@}"
 	do
 		if test -f "${i}"
@@ -1641,17 +1627,8 @@ show-packages)
 	;;
 show-missing-packages)
 	shift
-	if test "${#}" -lt 1
-	then
-		defaultdata="data/install-packages.${hostname}"
-		if test ! -f "${defaultdata}"
-		then
-			usage
-		fi
-		exec /bin/sh "${0}" show-packages "${defaultdata}"
-		echo "error in path: ${0}" >&2
-		exit 64
-	fi
+	defaultdata="data/install-packages.${hostname}"
+	parse_default
 	for i in "${@}"
 	do
 		if test -f "${i}"
@@ -1667,17 +1644,8 @@ show-missing-packages)
 	;;
 fetch-distfiles)
 	shift
-	if test "${#}" -lt 1
-	then
-		defaultdata="data/make-packages.${hostname}"
-		if test ! -f "${defaultdata}"
-		then
-			usage
-		fi
-		exec /bin/sh "${0}" fetch-distfiles "${defaultdata}"
-		echo "error in path: ${0}" >&2
-		exit 64
-	fi
+	defaultdata="data/make-packages.${hostname}"
+	parse_default
 	for i in "${@}"
 	do
 		if test -f "${i}"
@@ -1727,11 +1695,9 @@ make-deinstall-list)
 	make_version_list
 	make_deinstall_list
 	;;
-show-deinstall-list)
-	;;
 show-missing-reinstall)
-	grep '^#.*[\010]' "${deinstall}" |
-	while read dummy package origin
+	grep '^#' "${todolist}" |
+	while read origin dummy
 	do
 		if test ! -d "${origin}"
 		then
@@ -1758,13 +1724,40 @@ show-missing-reinstall)
 		echo "        ${package} not installed"
 	done
 	;;
+clean-reinstall)
+	grep '^#' "${todolist}" |
+	while read origin dummy
+	do
+		if test ! -d "${origin}"
+		then
+			echo "error   ${package} has lost portsdir"
+			continue
+		fi
+		pkgname=`cd "${origin}" && make -V PKGNAME`
+		if test -d "${pkg_dbdir}/${pkgname}" 
+		then
+			remove_from_file "${todolist}" "${origin}"
+			continue
+		fi
+		if test -d "${pkg_dbdir}/${package}" 
+		then
+			remove_from_file "${todolist}" "${origin}"
+			continue
+		fi
+		pkgfile=`cd "${origin}" && make -V PKGFILE`
+		if test ! -f "${pkgfile}"
+		then
+			echo "        ${package} no new package"
+			continue
+		fi
+		echo "        ${package} not installed"
+	done
+	;;
 show-missing-installed)
-	make_version_list
 	/bin/sh "${0}" show-missing-packages `pkg_info -qao`
 	;;
 reinstall)
-	exec /bin/sh "${0}" install-packages \
-		`grep '^#.*[\010]' "${deinstall}" | cut -d "	" -f3`
+	exec /bin/sh "${0}" install-packages "${todolist}"
 	echo "error in path: ${0}" >&2
 	exit 64
 	;;
@@ -1788,20 +1781,11 @@ clean)
 	rm -f "${cache}" "${deinstall}" "${easyupdate}"
 	;;
 check-installed-ports)
+	shift
 	tmp1="/tmp/check-listed.$$"
 	tmp2="/tmp/check-installed.$$"
 	defaultdata="data/install-packages.${hostname}"
-	shift
-	if test "${#}" -lt 1
-	then
-		if test ! -f "${defaultdata}"
-		then
-			usage
-		fi
-		exec /bin/sh "${0}" check-installed-ports "${defaultdata}"
-		echo "error in path: ${0}" >&2
-		exit 64
-	fi
+	parse_default
 	(
 		for i in "${@}"
 		do
