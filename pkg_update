@@ -1470,11 +1470,11 @@ make_easy_update() {
 #	awk -v HOSTNAME=${hostname} -f check-update.awk "${cache}"
 }
 #
-# parse_default
+# parse_default $#
 #	global: defaultdata
 #	global: target
 parse_default() {
-	if test "${#}" -lt 1
+	if test "${1}" -lt 1
 	then
 		defaultdata="data/install-packages.${hostname}"
 		if test ! -f "${defaultdata}"
@@ -1558,7 +1558,7 @@ make-packages)
 		exit 64
 	fi
 	shift
-	parse_default
+	parse_default "${#}"
 	quiet_mkdir "${localdir}/data" "${logdir}"
 	for i in "${@}"
 	do
@@ -1576,7 +1576,7 @@ make-packages)
 add-packages)
 	shift
 	defaultdata="data/install-packages.${hostname}"
-	parse_default
+	parse_default "${#}"
 	quiet_mkdir "${localdir}/data" "${logdir}"
 	for i in "${@}"
 	do
@@ -1594,7 +1594,7 @@ add-packages)
 install-packages)
 	shift
 	defaultdata="data/install-packages.${hostname}"
-	parse_default
+	parse_default "${#}"
 	for i in "${@}"
 	do
 		if test -f "${i}"
@@ -1611,7 +1611,7 @@ install-packages)
 show-packages)
 	shift
 	defaultdata="data/install-packages.${hostname}"
-	parse_default
+	parse_default "${#}"
 	for i in "${@}"
 	do
 		if test -f "${i}"
@@ -1628,7 +1628,7 @@ show-packages)
 show-missing-packages)
 	shift
 	defaultdata="data/install-packages.${hostname}"
-	parse_default
+	parse_default "${#}"
 	for i in "${@}"
 	do
 		if test -f "${i}"
@@ -1645,7 +1645,7 @@ show-missing-packages)
 fetch-distfiles)
 	shift
 	defaultdata="data/make-packages.${hostname}"
-	parse_default
+	parse_default "${#}"
 	for i in "${@}"
 	do
 		if test -f "${i}"
@@ -1785,7 +1785,7 @@ check-installed-ports)
 	tmp1="/tmp/check-listed.$$"
 	tmp2="/tmp/check-installed.$$"
 	defaultdata="data/install-packages.${hostname}"
-	parse_default
+	parse_default "${#}"
 	(
 		for i in "${@}"
 		do
