@@ -1719,7 +1719,7 @@ show-missing-reinstall)
 		installed=`pkg_info -qao | fgrep -x ${origin}`
 		if test "${installed}" != ""
 		then
-			echo "old     ${pkgname} installed"
+			echo "old     ${origin} installed"
 			continue
 		fi
 		pkgfile=`cd "${portsdir}/${origin}" && make -V PKGFILE`
@@ -1728,7 +1728,7 @@ show-missing-reinstall)
 			echo "        ${origin} no new package"
 			continue
 		fi
-		echo "        ${package} not installed"
+		echo "        ${origin} not installed"
 	done
 	;;
 clean-reinstall)
