@@ -1476,7 +1476,6 @@ make_easy_update() {
 parse_default() {
 	if test "${1}" -lt 1
 	then
-		defaultdata="data/install-packages.${hostname}"
 		if test ! -f "${defaultdata}"
 		then
 			usage
