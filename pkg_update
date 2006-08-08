@@ -1051,7 +1051,7 @@ delete_dependent_package() {
 	fi
 	origin=`pkg_info -qo "${installed}"`
 	echo "pkg_delete ${installed}"
-	add_to_file "${todolist}" "${origin}"
+	add_to_file "${todolist}" "${origin}" quiet
 	touch "${seenflag}"
 }
 #
@@ -1074,7 +1074,7 @@ make_deinstall_list() {
 	rm -f "${seen}/"*
 }
 #
-# remove_from_file file line
+# remove_from_file file line quiet
 remove_from_file( ) {
 	edit="${1}"
 	pattern="${2}"
@@ -1084,14 +1084,17 @@ remove_from_file( ) {
 	fi
 	if test `fgrep -x "${pattern}" "${edit}" | wc -l` -ge 1
 	then
-		echo "remove: ${pattern} from ${edit}"
+		if test "${quiet}" = ""
+		then
+			echo "remove: ${pattern} from ${edit}"
+		fi
 		cp -p "${edit}" "${edit}.bak"
 		fgrep -v -x "${pattern}" "${edit}.bak" > "${edit}"
 		rm -f "${edit}.bak"
 	fi
 }
 #
-# add_to_file file line
+# add_to_file file line quiet
 add_to_file( ) {
 	edit="${1}"
 	pattern="${2}"
@@ -1106,7 +1109,10 @@ add_to_file( ) {
 	fi
 	if ! fgrep -q -x "${pattern}" "${edit}"
 	then
-		echo "register: ${pattern} in ${edit}"
+		if test "${quiet}" = ""
+		then
+			echo "register: ${pattern} in ${edit}"
+		fi
 		echo "${pattern}" >> "${edit}"
 	fi
 }
@@ -1692,64 +1698,68 @@ make-version-list)
 	;;
 make-deinstall-list)
 	make_version_list
+	quiet="1"
 	make_deinstall_list
 	;;
 show-missing-reinstall)
-	grep '^#' "${todolist}" |
+	grep -v '^#' "${todolist}" |
 	while read origin dummy
 	do
-		if test ! -d "${origin}"
+		if test ! -d "${portsdir}/${origin}"
 		then
 			echo "error   ${package} has lost portsdir"
 			continue
 		fi
-		pkgname=`cd "${origin}" && make -V PKGNAME`
+		pkgname=`cd "${portsdir}/${origin}" && make -V PKGNAME`
 		if test -d "${pkg_dbdir}/${pkgname}" 
 		then
-			echo "new     ${package} installed"
+			echo "new     ${pkgname} installed"
 			continue
 		fi
-		if test -d "${pkg_dbdir}/${package}" 
+		installed=`pkg_info -qao | fgrep -x ${origin}`
+		if test "${installed}" != ""
 		then
-			echo "old     ${package} installed"
+			echo "old     ${pkgname} installed"
 			continue
 		fi
-		pkgfile=`cd "${origin}" && make -V PKGFILE`
+		pkgfile=`cd "${portsdir}/${origin}" && make -V PKGFILE`
 		if test ! -f "${pkgfile}"
 		then
-			echo "        ${package} no new package"
+			echo "        ${origin} no new package"
 			continue
 		fi
 		echo "        ${package} not installed"
 	done
 	;;
 clean-reinstall)
-	grep '^#' "${todolist}" |
+	quiet="1"
+	grep -v '^#' "${todolist}" |
 	while read origin dummy
 	do
-		if test ! -d "${origin}"
+		if test ! -d "${portsdir}/${origin}"
 		then
-			echo "error   ${package} has lost portsdir"
+			echo "error   ${origin} has lost portsdir"
 			continue
 		fi
-		pkgname=`cd "${origin}" && make -V PKGNAME`
+		pkgname=`cd "${portsdir}/${origin}" && make -V PKGNAME`
 		if test -d "${pkg_dbdir}/${pkgname}" 
 		then
 			remove_from_file "${todolist}" "${origin}"
 			continue
 		fi
-		if test -d "${pkg_dbdir}/${package}" 
+		installed=`pkg_info -qao | fgrep -x ${origin}`
+		if test "${installed}" != ""
 		then
 			remove_from_file "${todolist}" "${origin}"
 			continue
 		fi
-		pkgfile=`cd "${origin}" && make -V PKGFILE`
+		pkgfile=`cd "${portsdir}/${origin}" && make -V PKGFILE`
 		if test ! -f "${pkgfile}"
 		then
-			echo "        ${package} no new package"
+			echo "        ${origin} no new package"
 			continue
 		fi
-		echo "        ${package} not installed"
+		echo "        ${origin} not installed"
 	done
 	;;
 show-missing-installed)
