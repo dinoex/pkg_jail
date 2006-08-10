@@ -1869,7 +1869,7 @@ full-update-jail)
 	esac
 	/bin/sh "${0}" clean-packages
 	rm -f "${logdir}/"err,*
-	/bin/sh "${0}" clean-make-packages
+	/bin/sh "${0}" make-packages
 	;;
 *)
 	usage
