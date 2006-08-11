@@ -1270,7 +1270,7 @@ replace_package() {
 	then
 		echo \
 		rm -rf "${obsolete}/${oldpkg}"
-#		rm -rf "${obsolete}/${oldpkg}"
+		rm -rf "${obsolete}/${oldpkg}"
 	else
 		echo "check for obsolete files:"
 		echo "${obsoletefiles}"
