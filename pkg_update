@@ -1299,7 +1299,7 @@ set_fail_count() {
 	zero)
 		fail="0"
 		;;
-	donn)
+	down)
 		fail=`cat "${failcount}"`
 		fail="$((${fail} - 1))"
 		;;
