@@ -1794,6 +1794,10 @@ check-installed-ports)
 	tmp1="/tmp/check-listed.$$"
 	tmp2="/tmp/check-installed.$$"
 	defaultdata="data/install-packages.${hostname}"
+	if test ! -f "${defaultdata}"
+	then
+		/bin/sh "${0}" "list-installed-ports" | sort > "${defaultdata}"
+	fi
 	parse_default "${#}"
 	(
 		for i in "${@}"
