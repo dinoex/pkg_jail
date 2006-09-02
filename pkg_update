@@ -1280,18 +1280,20 @@ replace_package() {
 #
 # get_moved_origin origin
 get_new_origin() {
-	movedto="${origin}"
-	if test ! -d "${portsdir}/${origin}"
+	local origin
+	origin="${1}"
+	if test -d "${portsdir}/${origin}"
 	then
-		if ! fgrep -q "${origin}|" "${portsdir}/MOVED"
-		then
-			return
-		fi
-		movedto=`fgrep "${origin}|" "${portsdir}/MOVED" |
-			tail -1 |
-			cut -d "|" -f2`
+		echo "${origin}"
+		return
 	fi
-	echo "${movedto}"
+	if ! fgrep -q "${origin}|" "${portsdir}/MOVED"
+	then
+		return
+	fi
+	fgrep "${origin}|" "${portsdir}/MOVED" |
+		tail -1 |
+		cut -d "|" -f2
 }
 #
 set_fail_count() {
@@ -1315,10 +1317,6 @@ set_fail_count() {
 easy_required_package() {
 	local installed contents pkgname deporigin movedto
 	installed="${1}"
-	if test -e "${good}/${installed}"
-	then
-		return
-	fi
 	if test -e "${required}/${installed}"
 	then
 		return
@@ -1347,11 +1345,6 @@ easy_required_package() {
 			set_fail_count up
 		fi
 	done
-	fail=`cat "${failcount}"`
-	if test "${fail}" -eq "0"
-	then
-		touch "${good}/${installed}"
-	fi
 }
 # check recursive for easy deinstall
 easy_dependent_package() {
@@ -1431,11 +1424,13 @@ easy_update_package() {
 	origin=`pkg_info -qo "${installed}"`
 	if test "${origin}" = ""
 	then
+		echo "# ${installed}: no origin"
 		return
 	fi
 	movedto=`get_new_origin "${origin}"`
 	if test "${movedto}" = ""
 	then
+		echo "# ${installed}: origin vanished"
 		return
 	fi
 	pkgname=`cd "${portsdir}/${movedto}" && make -V PKGNAME`
@@ -1450,12 +1445,11 @@ make_easy_update() {
 	easyremake="/tmp/easy-remake.list"
 	easyremaketmp="/tmp/easy-remake.list.tmp"
 	easyclean="/tmp/easy-clean.list"
-	quiet_mkdir "${seen}" "${required}" "${inrequired}" "${failed}" "${good}"
+	quiet_mkdir "${seen}" "${required}" "${inrequired}" "${failed}"
 	rm -f "${seen}/"*
 	rm -f "${required}/"*
 	rm -f "${inrequired}/"*
 	rm -f "${failed}/"*
-	rm -f "${good}/"*
 	touch "${easyremake}" "${easyclean}"
 	(
 		echo "#!/bin/sh"
@@ -1471,9 +1465,7 @@ make_easy_update() {
 				;;
 			esac
 		done
-		easy_process_output
 	) > "${easyupdate}"
-#	awk -v HOSTNAME=${hostname} -f check-update.awk "${cache}"
 }
 #
 # parse_default $#
@@ -1541,7 +1533,6 @@ seen="/tmp/deinstall-seen"
 required="/tmp/required-seen"
 inrequired="/tmp/inrequired-seen"
 failed="/tmp/easy-failed"
-good="/tmp/easy-good"
 failcount="/tmp/easy-failecount.txt"
 #
 #	get all path information from /etc/make.conf
