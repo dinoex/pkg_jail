@@ -1468,6 +1468,41 @@ make_easy_update() {
 	) > "${easyupdate}"
 }
 #
+show_extra_files() {
+	tmp1="/tmp/in-cvs.txt"
+	tmp2="/tmp/in-ports.txt"
+	list="/var/db/sup/ports-all/checkouts.cvs:."
+	if test ! -f "${list}"
+	then
+		list="/usr/sup/ports-all/checkouts.cvs:."
+		if test ! -f "${list}"
+		then
+			echo "Sorry, can not find 'checkouts.cvs:.'"
+			exit 69
+		fi
+	fi
+	#
+	echo "processing cvs ..."
+	egrep "^[CD]" "${list}" |
+	cut -d " " -f2 |
+	sed -e 's=,v$==' |
+	sort > "${tmp1}"
+	#
+	echo "processing ports ..."
+	find "${portsdir}" |
+	sed -e 's=^/usr/==' |
+	egrep -v "^ports/(local|current|distfiles|packages|rookies)" |
+	sort > "${tmp2}"
+	#
+	comm -13 "${tmp1}" "${tmp2}" |
+	while read data
+	do
+		echo "${data}"
+	done
+	#
+	rm -f "${tmp1}" "${tmp2}"
+}
+#
 # parse_default $#
 #	global: defaultdata
 #	global: target
@@ -1511,6 +1546,7 @@ usage() {
 	echo "    ${0##*/} check-installed-ports [port]" >&2
 	echo "    ${0##*/} cvsup" >&2
 	echo "    ${0##*/} full-update-jail [retry]" >&2
+	echo "    ${0##*/} show-extra-files" >&2
 	exit 64
 }
 #
@@ -1865,6 +1901,9 @@ full-update-jail)
 	/bin/sh "${0}" clean-packages
 	rm -f "${logdir}/"err,*
 	/bin/sh "${0}" make-packages
+	;;
+show-extra-files)
+	show_extra_files
 	;;
 *)
 	usage
