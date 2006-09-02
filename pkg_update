@@ -1538,6 +1538,7 @@ usage() {
 	echo "    ${0##*/} make-deinstall-list" >&2
 	echo "    ${0##*/} show-missing-reinstall" >&2
 	echo "    ${0##*/} show-missing-installed" >&2
+	echo "    ${0##*/} check-reinstall" >&2
 	echo "    ${0##*/} reinstall" >&2
 	echo "    ${0##*/} clean-reinstall" >&2
 	echo "    ${0##*/} make-easy-update" >&2
@@ -1737,6 +1738,12 @@ show-missing-reinstall)
 			echo "error   ${package} has lost portsdir"
 			continue
 		fi
+		pkgfile=`cd "${portsdir}/${origin}" && make -V PKGFILE`
+		if test ! -f "${pkgfile}"
+		then
+			echo "        ${origin} no new package"
+			continue
+		fi
 		pkgname=`cd "${portsdir}/${origin}" && make -V PKGNAME`
 		if test -d "${pkg_dbdir}/${pkgname}" 
 		then
@@ -1749,13 +1756,24 @@ show-missing-reinstall)
 			echo "old     ${origin} installed"
 			continue
 		fi
+		echo "        ${origin} not installed"
+	done
+	;;
+check-reinstall)
+	grep -v '^#' "${todolist}" |
+	while read origin dummy
+	do
+		movedto=`get_new_origin "${origin}"`
+		if test "${movedto}" = ""
+		then
+			echo "error   ${package} has lost portsdir"
+			continue
+		fi
 		pkgfile=`cd "${portsdir}/${origin}" && make -V PKGFILE`
 		if test ! -f "${pkgfile}"
 		then
-			echo "        ${origin} no new package"
 			continue
 		fi
-		echo "        ${origin} not installed"
 	done
 	;;
 clean-reinstall)
