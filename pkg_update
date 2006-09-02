@@ -1490,7 +1490,7 @@ show_extra_files() {
 	#
 	echo "processing ports ..."
 	find "${portsdir}" |
-	sed -e 's=^/usr/==' |
+	sed -e "s=^${portsdir}=ports=" |
 	egrep -v "^ports/(local|current|distfiles|packages|rookies)" |
 	sort > "${tmp2}"
 	#
