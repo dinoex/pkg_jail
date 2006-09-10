@@ -279,6 +279,7 @@ port_uptodate() {
 			;;
 		esac
 	done
+	pkgname="${mainpkg}"
 	if test -e "${tmpfailed}"
 	then
 		fulldir=`pwd`
