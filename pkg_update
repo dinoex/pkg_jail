@@ -553,8 +553,19 @@ install_packages_in_dir() {
 		xdir="${portsdir}/${dir}"
 		if test ! -d "${xdir}"
 		then
-			echo "## dir does not exist: ${dir}"
-			return
+			movedto=`get_new_origin "${dir}"`
+			if test "${movedto}" = "${dir}"
+			then
+				echo "## dir does not exist: ${dir}"
+				return
+			fi
+			echo "## dir moved: ${dir} -> ${movedto}"
+			xdir="${portsdir}/${movedto}"
+			if test ! -d "${xdir}"
+			then
+				echo "## dir does not exist: ${movedto}"
+				return
+			fi
 		fi
 		dir="${xdir}"
 	fi
@@ -1734,18 +1745,19 @@ show-missing-reinstall)
 	grep -v '^#' "${todolist}" |
 	while read origin dummy
 	do
-		if test ! -d "${portsdir}/${origin}"
+		movedto=`get_new_origin "${origin}"`
+		if test ! -d "${portsdir}/${movedto}"
 		then
-			echo "error   ${package} has lost portsdir"
+			echo "error   ${package} has lost portsdir ${movedto}"
 			continue
 		fi
-		pkgfile=`cd "${portsdir}/${origin}" && make -V PKGFILE`
+		pkgfile=`cd "${portsdir}/${movedto}" && make -V PKGFILE`
 		if test ! -f "${pkgfile}"
 		then
-			echo "        ${origin} no new package"
+			echo "        ${movedto} no new package"
 			continue
 		fi
-		pkgname=`cd "${portsdir}/${origin}" && make -V PKGNAME`
+		pkgname=`cd "${portsdir}/${movedto}" && make -V PKGNAME`
 		if test -d "${pkg_dbdir}/${pkgname}" 
 		then
 			echo "new     ${pkgname} installed"
@@ -1757,7 +1769,13 @@ show-missing-reinstall)
 			echo "old     ${origin} installed"
 			continue
 		fi
-		echo "        ${origin} not installed"
+		installed=`pkg_info -qao | fgrep -x ${movedto}`
+		if test "${installed}" != ""
+		then
+			echo "old     ${movedto} installed"
+			continue
+		fi
+		echo "        ${movedto} package not installed"
 	done
 	;;
 check-reinstall)
@@ -1765,14 +1783,15 @@ check-reinstall)
 	while read origin dummy
 	do
 		movedto=`get_new_origin "${origin}"`
-		if test "${movedto}" = ""
+		if test ! -d "${portsdir}/${movedto}"
 		then
-			echo "error   ${package} has lost portsdir"
+			echo "error   ${package} has lost portsdir ${movedto}"
 			continue
 		fi
-		pkgfile=`cd "${portsdir}/${origin}" && make -V PKGFILE`
+		pkgfile=`cd "${portsdir}/${movedto}" && make -V PKGFILE`
 		if test ! -f "${pkgfile}"
 		then
+			echo "        ${movedto} no new package"
 			continue
 		fi
 	done
@@ -1782,12 +1801,13 @@ clean-reinstall)
 	grep -v '^#' "${todolist}" |
 	while read origin dummy
 	do
-		if test ! -d "${portsdir}/${origin}"
+		movedto=`get_new_origin "${origin}"`
+		if test ! -d "${portsdir}/${movedto}"
 		then
-			echo "error   ${origin} has lost portsdir"
+			echo "error   ${origin} has lost portsdir ${movedto}"
 			continue
 		fi
-		pkgname=`cd "${portsdir}/${origin}" && make -V PKGNAME`
+		pkgname=`cd "${portsdir}/${movedto}" && make -V PKGNAME`
 		if test -d "${pkg_dbdir}/${pkgname}" 
 		then
 			remove_from_file "${todolist}" "${origin}"
@@ -1799,13 +1819,13 @@ clean-reinstall)
 			remove_from_file "${todolist}" "${origin}"
 			continue
 		fi
-		pkgfile=`cd "${portsdir}/${origin}" && make -V PKGFILE`
+		pkgfile=`cd "${portsdir}/${movedto}" && make -V PKGFILE`
 		if test ! -f "${pkgfile}"
 		then
-			echo "        ${origin} no new package"
+			echo "        ${movedto} no new package"
 			continue
 		fi
-		echo "        ${origin} not installed"
+		echo "        ${origin} package not installed"
 	done
 	;;
 show-missing-installed)
