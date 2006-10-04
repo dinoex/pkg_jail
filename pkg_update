@@ -793,6 +793,32 @@ clean_package_all() {
 	done
 }
 #
+# check all packages in ${PACKAGES}/All/ and move if port uses openssl
+# Usage: clean_package_openssl
+clean_package_openssl() {
+	cd ${pkgall} || exit 69
+	for i in *
+	do
+		origin=`pkg_info -q -o ${i}`
+		if test "${origin}" = ""
+		then
+			continue
+		fi
+		depdir="${portsdir}/${origin}"
+		if test ! -d "${depdir}"
+		then
+			continue
+		fi
+		openssl=`cd "${depdir}" && make -V USE_OPENSSL`
+		if test "${openssl}" =  ""
+		then
+			continue
+		fi
+		echo "${i}: depends on openssl!"
+		move_away ${i}
+	done
+}
+#
 # check all links in ${PACKAGES}/
 # Usage: clean_package_links
 clean_package_links() {
@@ -1540,6 +1566,7 @@ usage() {
 	echo "    ${0##*/} show-packages [port] [...]" >&2
 	echo "    ${0##*/} show-missing-packages [port] [...]" >&2
 	echo "    ${0##*/} clean-packages" >&2
+	echo "    ${0##*/} clean-openssl-packages" >&2
 	echo "    ${0##*/} clean-distfiles" >&2
 	echo "    ${0##*/} fetch-distfiles [port] [...]" >&2
 	echo "    ${0##*/} dependency-update" >&2
@@ -1710,6 +1737,13 @@ clean-packages)
 	pkgold="${packages}/Old"
 	#
 	clean_package_all
+	clean_package_links
+	;;
+clean-openssl-packages)
+	pkgall="${packages}/All"
+	pkgold="${packages}/Old"
+	#
+	clean_package_openssl
 	clean_package_links
 	;;
 clean-distfiles)
