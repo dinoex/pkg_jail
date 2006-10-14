@@ -478,7 +478,7 @@ make_packages_in_dir() {
 		case "${dir}" in
 		'')
 			;;
-		*nonexistant)
+		*nonexistent)
 			;;
 		*)
 			echo "## dir does not exist: ${dir}"
@@ -499,7 +499,7 @@ add_packages_in_dir() {
 		return
 	fi
 	case "${dir}" in
-	*nonexistant)
+	*nonexistent)
 		return
 		;;
 	esac
@@ -544,7 +544,7 @@ install_packages_in_dir() {
 		return
 	fi
 	case "${dir}" in
-	*nonexistant)
+	*nonexistent)
 		return
 		;;
 	esac
@@ -554,6 +554,11 @@ install_packages_in_dir() {
 		if test ! -d "${xdir}"
 		then
 			movedto=`get_new_origin "${dir}"`
+			if test "${movedto}" = "nonexistent"
+			then
+				echo "## port removed: ${dir}"
+				return
+			fi
 			if test "${movedto}" = "${dir}"
 			then
 				echo "## dir does not exist: ${dir}"
@@ -597,7 +602,7 @@ show_packages_in_dir() {
 		return
 	fi
 	case "${dir}" in
-	*nonexistant)
+	*nonexistent)
 		return
 		;;
 	esac
@@ -639,7 +644,7 @@ show_missing_packages_in_dir() {
 		return
 	fi
 	case "${dir}" in
-	*nonexistant)
+	*nonexistent)
 		return
 		;;
 	esac
@@ -679,7 +684,7 @@ fetch_distfiles_in_dir() {
 		return
 	fi
 	case "${dir}" in
-	*nonexistant)
+	*nonexistent)
 		return
 		;;
 	esac
@@ -1329,9 +1334,15 @@ get_new_origin() {
 	then
 		return
 	fi
-	fgrep "${origin}|" "${portsdir}/MOVED" |
+	movedto=`fgrep "${origin}|" "${portsdir}/MOVED" |
 		tail -1 |
-		cut -d "|" -f2
+		cut -d "|" -f2`
+	if test "${movedto}" = ""
+	then
+		echo "nonexistent"
+		return
+	fi
+	echo "${movedto}"
 }
 #
 set_fail_count() {
