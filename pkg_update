@@ -1568,6 +1568,15 @@ parse_default() {
 	fi
 }
 #
+next_target() {
+	if test "${#}" -lt 2
+	then
+		return
+	fi
+	shift
+	exec /bin/sh "${0}" "${@}"
+}
+#
 # inform usage
 usage() {
 	echo "Usage:" >&2
@@ -1576,26 +1585,26 @@ usage() {
 	echo "    ${0##*/} install-packages [port] [...]" >&2
 	echo "    ${0##*/} show-packages [port] [...]" >&2
 	echo "    ${0##*/} show-missing-packages [port] [...]" >&2
-	echo "    ${0##*/} clean-packages" >&2
-	echo "    ${0##*/} clean-openssl-packages" >&2
-	echo "    ${0##*/} clean-distfiles" >&2
+	echo "    ${0##*/} clean-packages ..." >&2
+	echo "    ${0##*/} clean-openssl-packages ..." >&2
+	echo "    ${0##*/} clean-distfiles ..." >&2
 	echo "    ${0##*/} fetch-distfiles [port] [...]" >&2
-	echo "    ${0##*/} dependency-update" >&2
-	echo "    ${0##*/} fix-moved-ports" >&2
+	echo "    ${0##*/} dependency-update ..." >&2
+	echo "    ${0##*/} fix-moved-ports ..." >&2
 	echo "    ${0##*/} list-installed-ports" >&2
-	echo "    ${0##*/} make-version-list" >&2
-	echo "    ${0##*/} show-version-list" >&2
-	echo "    ${0##*/} make-deinstall-list" >&2
+	echo "    ${0##*/} make-version-list ..." >&2
+	echo "    ${0##*/} show-version-list ..." >&2
+	echo "    ${0##*/} make-deinstall-list ..." >&2
 	echo "    ${0##*/} show-missing-reinstall" >&2
 	echo "    ${0##*/} show-missing-installed" >&2
 	echo "    ${0##*/} check-reinstall" >&2
 	echo "    ${0##*/} reinstall" >&2
 	echo "    ${0##*/} clean-reinstall" >&2
-	echo "    ${0##*/} make-easy-update" >&2
+	echo "    ${0##*/} make-easy-update ..." >&2
 	echo "    ${0##*/} replace-package [port] [...]" >&2
-	echo "    ${0##*/} clean" >&2
+	echo "    ${0##*/} clean ..." >&2
 	echo "    ${0##*/} check-installed-ports [port]" >&2
-	echo "    ${0##*/} cvsup" >&2
+	echo "    ${0##*/} cvsup [MAKEOPTION=X]" >&2
 	echo "    ${0##*/} full-update-jail [retry]" >&2
 	echo "    ${0##*/} show-extra-files" >&2
 	exit 64
@@ -1749,6 +1758,7 @@ clean-packages)
 	#
 	clean_package_all
 	clean_package_links
+	next_target "${@}"
 	;;
 clean-openssl-packages)
 	pkgall="${packages}/All"
@@ -1756,18 +1766,22 @@ clean-openssl-packages)
 	#
 	clean_package_openssl
 	clean_package_links
+	next_target "${@}"
 	;;
 clean-distfiles)
 	old="${distdir}/Old"
 	distdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V DISTDIR`
 	#
 	clean_distfiles
+	next_target "${@}"
 	;;
 dependency-update)
 	dependency_update
+	next_target "${@}"
 	;;
 fix-moved-ports)
 	fix_moved_ports
+	next_target "${@}"
 	;;
 list-installed-ports)
 	shift
@@ -1776,15 +1790,18 @@ list-installed-ports)
 show-version-list)
 	make_version_list
 	cat "${cache}"
+	next_target "${@}"
 	;;
 make-version-list)
 	rm -f "${cache}"
 	make_version_list
+	next_target "${@}"
 	;;
 make-deinstall-list)
 	make_version_list
 	quiet="1"
 	make_deinstall_list
+	next_target "${@}"
 	;;
 show-missing-reinstall)
 	grep -v '^#' "${todolist}" |
@@ -1896,9 +1913,11 @@ replace-package)
 make-easy-update)
 	make_version_list
 	make_easy_update > "${easyupdate}"
+	next_target "${@}"
 	;;
 clean)
 	rm -f "${cache}" "${deinstall}" "${easyupdate}"
+	next_target "${@}"
 	;;
 check-installed-ports)
 	shift
