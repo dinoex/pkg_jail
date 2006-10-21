@@ -1756,16 +1756,22 @@ clean-packages)
 	pkgall="${packages}/All"
 	pkgold="${packages}/Old"
 	#
-	clean_package_all
-	clean_package_links
+	# save pwd
+	(
+		clean_package_all
+		clean_package_links
+	)
 	next_target "${@}"
 	;;
 clean-openssl-packages)
 	pkgall="${packages}/All"
 	pkgold="${packages}/Old"
 	#
-	clean_package_openssl
-	clean_package_links
+	# save pwd
+	(
+		clean_package_openssl
+		clean_package_links
+	)
 	next_target "${@}"
 	;;
 clean-distfiles)
