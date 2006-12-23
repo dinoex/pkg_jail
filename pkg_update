@@ -1823,8 +1823,8 @@ clean-openssl-packages)
 	next_target "${@}"
 	;;
 clean-distfiles)
-	old="${distdir}/Old"
 	distdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V DISTDIR`
+	old="${distdir}/Old"
 	#
 	clean_distfiles
 	next_target "${@}"
