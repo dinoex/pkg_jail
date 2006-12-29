@@ -1635,8 +1635,8 @@ usage() {
 	echo "    ${0##*/} replace-package [port] [...]" >&2
 	echo "    ${0##*/} clean ..." >&2
 	echo "    ${0##*/} check-installed-ports [port]" >&2
-	echo "    ${0##*/} cvsup [MAKEOPTION=X]" >&2
-	echo "    ${0##*/} full-update-jail [retry]" >&2
+	echo "    ${0##*/} cvsup ..." >&2
+	echo "    ${0##*/} full-update-jail [retry] ..." >&2
 	echo "    ${0##*/} show-extra-files" >&2
 	exit 64
 }
@@ -2015,24 +2015,35 @@ check-installed-ports)
 	rm -f "${tmp1}" "${tmp2}"
 	;;
 cvsup)
-	installed=`pkg_info -qao | grep cvsup`
-	if test "${installed}" = ""
+	sup=`cd ${portsdir} && make -V SUP`
+	if test -f "${cvsupscript}"
 	then
-		for i in \
-			${packages}/All/cvsup-without-gui-* \
-			${localdir}/cvsup-without-gui-*
-		do
-			if test -f "${i}"
+		sh "${cvsupscript}"
+	else
+		case "${sup}" in
+		*/cvsup)
+			installed=`pkg_info -qao | grep cvsup`
+			if test "${installed}" = ""
 			then
-				echo \
-				pkg_add ${i}
-				pkg_add ${i}
-				break
+				for i in \
+					${packages}/All/cvsup-without-gui-* \
+					${localdir}/cvsup-without-gui-*
+				do
+					if test -f "${i}"
+					then
+						echo \
+						pkg_add ${i}
+						pkg_add ${i}
+						break
+					fi
+				done
 			fi
-		done
+			;;
+		esac
 	fi
 	shift
-	cd ${portsdir} && make update "$@"
+	(cd ${portsdir} && make update)
+	next_target "${@}"
 	;;
 full-update-jail)
 	cd ${localdir} || exit 69
@@ -2042,22 +2053,16 @@ full-update-jail)
 	shift
 	case "${1}" in
 	retry)
+		shift
 		;;
 	*)
-		if test -f "${cvsupscript}"
-		then
-			sh "${cvsupscript}"
-		else
-			if test -f "${defaultdata}"
-			then
-				/bin/sh "${0}" cvsup "$@"
-			fi
-		fi
+		/bin/sh "${0}" cvsup
 		;;
 	esac
 	/bin/sh "${0}" clean-packages
 	rm -f "${logdir}/"err,*
 	/bin/sh "${0}" make-packages
+	next_target "${@}"
 	;;
 show-extra-files)
 	show_extra_files
