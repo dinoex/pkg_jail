@@ -1360,10 +1360,6 @@ get_new_origin() {
 		echo "${origin}"
 		return
 	fi
-	if ! fgrep -q "${origin}|" "${portsdir}/MOVED"
-	then
-		return
-	fi
 	movedto=`fgrep "${origin}|" "${portsdir}/MOVED" |
 		tail -1 |
 		cut -d "|" -f2`
