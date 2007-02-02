@@ -306,41 +306,45 @@ port_uptodate() {
 		echo "cd ${base} && make package >> ${logdir}/err,${log} 2>&1"
 		case "$1" in
 		make*)
-			( cd ${base} && make package </dev/null >> ${logdir}/err,${log} 2>&1 )
-			if test -e "${pkg_dbdir}/${pkgname}/+CONTENTS"
+			( cd "${base}" && make package </dev/null >> "${logdir}/err,${log}" 2>&1 )
+			if test ! -e "${pkg_dbdir}/${pkgname}/+CONTENTS"
 			then
-				pkgfile=`cd ${base} && make -V PKGFILE`
-				if test -e "${pkgfile}"
-				then
-					mv -f "${logdir}/err,${log}" "${logdir}/build,${log}"
-					( cd ${base} && make clean NOCLEANDEPENDS=yes )
-				else
+				noinstall=`cd "${base}" && make -V NO_INSTALL`
+				case "${noinstall}" in
+				yes|YES)
+					;;
+				*)
 					echo "=====================================" >&2
-					echo "=== package ${pkgname} was not build" >&2
+					echo "=== package ${pkgname} was not installed" >&2
 					echo "=====================================" >&2
-					echo "=== package ${pkgname} was not build" \
+					echo "=== package ${pkgname} was not installed" \
 						>> ${logdir}/err,${log}
 					return 2
-				fi
+				esac
+			fi
+			pkgfile=`cd "${base}" && make -V PKGFILE`
+			if test -e "${pkgfile}"
+			then
+				mv -f "${logdir}/err,${log}" "${logdir}/build,${log}"
+				( cd ${base} && make clean NOCLEANDEPENDS=yes )
 			else
 				echo "=====================================" >&2
-				echo "=== package ${pkgname} was not installed" >&2
+				echo "=== package ${pkgname} was not build" >&2
 				echo "=====================================" >&2
-				echo "=== package ${pkgname} was not installed" \
+				echo "=== package ${pkgname} was not build" \
 					>> ${logdir}/err,${log}
 				return 2
 			fi
 			;;
 		show*)
-			echo "if test -e \"${pkg_dbdir}/${mainpkg}/+CONTENTS\""
+			echo "if test ! -e \"${pkg_dbdir}/${mainpkg}/+CONTENTS\""
 			echo "then"
-			echo "	mv -f \"${logdir}/err,${log}\" \"${logdir}/build,${log}\""
-			echo "else"
 			echo "  echo \"=====================================\" >&2"
 			echo "  echo \"=== package ${pkgname} was not build\" >&2"
 			echo "  echo \"=====================================\" >&2"
 			echo "  exit 2"
 			echo "fi"
+			echo "mv -f \"${logdir}/err,${log}\" \"${logdir}/build,${log}\""
 			return 1
 			;;
 		esac
