@@ -746,7 +746,28 @@ move_away() {
 	then
 		# move it if the "Old" directory exists.
 		mv -f "${1}" "${pkgold}/${1}"
+		file="${1##*/}"
+		saved="${pkginfo_cache}/${file}"
+		if test -f "${saved}"
+		then
+			rm -f "${saved}"
+		fi
 	fi
+}
+#
+# cache pkg_info -r
+# usage: pkg_info_dependecies  package
+pkg_info_dependecies()
+{
+	file="${1##*/}"
+	saved="${pkginfo_cache}/${file}"
+	if test "${saved}" -nt "${1}"
+	then
+		cat "${saved}"
+		return
+	fi
+	pkg_info -q -r ${i} |
+	tee "${saved}"
 }
 #
 # check all packages in ${PACKAGES}/All/
@@ -785,7 +806,7 @@ clean_package_all() {
 		ptarget="${pnew}"
 		#
 		# check each depended package
-		pkg_info -q -r ${i} |
+		pkg_info_dependecies "${i}" |
 		while read dummy dep
 		do
 			pmade="${dep}${ext}"
@@ -955,7 +976,7 @@ dependency_update() {
 	while read find
 	do
 		# depends on
-		pkg_info -r -q "${find}" |
+		pkg_info_dependecies "${find}" |
 		while read key depend
 		do
 #			echo "${find} needs ${depend}"
@@ -1661,12 +1682,14 @@ required="/tmp/required-seen"
 inrequired="/tmp/inrequired-seen"
 failed="/tmp/easy-failed"
 failcount="/tmp/easy-failecount.txt"
+pkginfo_cache="/var/tmp/pkginfo_cache"
 #
 #	get all path information from /etc/make.conf
 nowarn="COMMENT=0 CATEGORIES=0 PORTVERSION=0"
 portsdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PORTSDIR`
 pkg_dbdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_DBDIR`
 packages=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PACKAGES`
+quiet_mkdir "${pkginfo_cache}"
 #
 target="${1}"
 case "${target}" in
