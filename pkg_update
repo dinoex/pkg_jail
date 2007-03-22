@@ -766,7 +766,7 @@ pkg_info_dependecies()
 		cat "${saved}"
 		return
 	fi
-	pkg_info -q -r ${i} |
+	pkg_info -q -r ${1} |
 	tee "${saved}"
 }
 #
