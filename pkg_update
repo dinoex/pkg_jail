@@ -905,7 +905,7 @@ clean_distfiles() {
 	tmp1="/tmp/all-distinfo"
 	tmp2="/tmp/all-distfiles"
 	rm -f "${tmp2}"
-	find "${tmp1}" -type f -mtime +1 -exec rm -f {} \;
+	find "${tmp1}" -type f -mtime +6h -exec rm -f {} \;
 	if ! test -f "${tmp1}"
 	then
 		echo "Processing ... distinfo"
