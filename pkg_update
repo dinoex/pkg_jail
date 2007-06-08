@@ -384,7 +384,7 @@ make_packages_in_dir() {
 		then
 			rm -rf ${wrkdir}/*
 			pkg_delete -f ${pkg_dbdir}/* >/dev/null 2>&1
-			rm -rf /usr/local/* /usr/X11R6/*
+			rm -rf /usr/local/*
 		fi
 		
 		port_uptodate show > "${tmpshow}"
@@ -449,23 +449,6 @@ make_packages_in_dir() {
 				if test -d /usr/local
 				then
 					find -d /usr/local -type d |
-					sed -f "${subs}" |
-					plist_dir >> "${plistlog}"
-				fi
-			fi
-			if test -d /usr/X11R6
-			then
-				find -d /usr/X11R6 -type f |
-				sed -f "${subs}" >> "${plistlog}"
-				find -d /usr/X11R6 -type l |
-				sed -f "${subs}" >> "${plistlog}"
-				cleanmtree /usr/X11R6 /tmp/X11R6 \
-					/etc/mtree/BSD.x11-4.dist
-				cleanmtree /usr/X11R6 /tmp/X11R6 \
-					/etc/mtree/BSD.x11.dist
-				if test -d /usr/X11R6
-				then
-					find -d /usr/X11R6 -type d |
 					sed -f "${subs}" |
 					plist_dir >> "${plistlog}"
 				fi
