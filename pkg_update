@@ -375,6 +375,7 @@ make_packages_in_dir() {
 	fi
 	if test -d "${dir}"
 	then
+		(
 		echo ""
 		echo "# checking: ${dir}"
 		cd "${dir}" || return 69
@@ -461,6 +462,7 @@ make_packages_in_dir() {
 			;;
 		esac
 		rm -f "${tmpshow}"
+		)
 	else
 		case "${dir}" in
 		'')
@@ -501,6 +503,7 @@ add_packages_in_dir() {
 		dir="${xdir}"
 	fi
 
+	(
 	echo "# checking: ${dir}"
 	cd "${dir}" || return 69
 
@@ -520,6 +523,7 @@ add_packages_in_dir() {
 		;;
 	esac
 	rm -f "${tmpshow}"
+	)
 }
 #
 # install the existing packages from a port to a host
@@ -563,6 +567,7 @@ install_packages_in_dir() {
 	fi
 
 #	echo "# checking: ${dir}"
+	(
 	cd "${dir}" || return 69
 	pkgname=`make -V PKGNAME`
 	if test -e ${pkg_dbdir}/${pkgname}/+CONTENTS
@@ -578,6 +583,7 @@ install_packages_in_dir() {
 	fi
 	echo "## package does not exist: ${pkgfile}"
 	echo "(cd ${dir} && make package)"
+	)
 }
 #
 # show the existing packages from a port to a host
@@ -604,6 +610,7 @@ show_packages_in_dir() {
 		dir="${xdir}"
 	fi
 
+	(
 #	echo "# checking: ${dir}"
 	cd "${dir}" || return 69
 	pkgname=`make -V PKGNAME`
@@ -619,6 +626,7 @@ show_packages_in_dir() {
 	fi
 	echo "## package does not exist: ${pkgfile}"
 	echo "(cd ${dir} && make package)"
+	)
 }
 #
 #
@@ -646,6 +654,7 @@ show_missing_packages_in_dir() {
 		dir="${xdir}"
 	fi
 
+	(
 #	echo "# checking: ${dir}"
 	cd "${dir}" || return 69
 	pkgname=`make -V PKGNAME`
@@ -660,6 +669,7 @@ show_missing_packages_in_dir() {
 	fi
 	echo "## package does not exist: ${pkgfile}"
 	echo "(cd ${dir} && make package)"
+	)
 }
 #
 # fetch the distfiles for a port
@@ -686,10 +696,12 @@ fetch_distfiles_in_dir() {
 		dir="${xdir}"
 	fi
 
+	(
 	echo "# checking: ${dir}"
 	cd "${dir}" || return 69
 
 	make fetch
+	)
 }
 #
 # fetch the distfiles for a port
@@ -716,10 +728,12 @@ fetch_recursive_distfiles_in_dir() {
 		dir="${xdir}"
 	fi
 
+	(
 	echo "# checking: ${dir}"
 	cd "${dir}" || return 69
 
 	make fetch-recursive
+	)
 }
 #
 # move outdated package int seperate dir for cleanup
@@ -756,6 +770,7 @@ pkg_info_dependecies()
 # check all packages in ${PACKAGES}/All/
 # Usage: clean_package_all
 clean_package_all() {
+	(
 	cd ${pkgall} || exit 69
 	for i in *
 	do
@@ -834,11 +849,13 @@ clean_package_all() {
 			fi
 		done
 	done
+	)
 }
 #
 # check all packages in ${PACKAGES}/All/ and move if port uses openssl
 # Usage: clean_package_openssl
 clean_package_openssl() {
+	(
 	cd ${pkgall} || exit 69
 	for i in *
 	do
@@ -860,6 +877,7 @@ clean_package_openssl() {
 		echo "${i}: depends on openssl!"
 		move_away ${i}
 	done
+	)
 }
 #
 # check all links in ${PACKAGES}/
