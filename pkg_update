@@ -2033,7 +2033,27 @@ check-installed-ports)
 	if test "${obsolete}"
 	then
 		echo "#    installed, but not listed:"
-		echo "${obsolete}"
+		echo "${obsolete}" |
+		while read origin
+		do
+			if test ! -d "${portsdir}/${origin}"
+			then
+				echo "${origin} (no origin)"
+				continue
+			fi
+			pkgname=`cd "${portsdir}/${origin}" && make -V PKGNAME 2>/dev/null`
+			if test ! -e "${pkg_dbdir}/${pkgname}/+CONTENTS"
+			then
+				echo "${origin} (old)"
+				continue
+			fi
+			if test -e "${pkg_dbdir}/${pkgname}/+REQUIRED_BY"
+			then
+				echo "${origin} (dependency)"
+				continue
+			fi
+			echo "${origin}"
+		done
 		echo ""
 	fi
 	rm -f "${tmp1}" "${tmp2}"
