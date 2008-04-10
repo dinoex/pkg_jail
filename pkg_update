@@ -89,6 +89,21 @@ plist_sub() {
 	echo "s=$(make -V PREFIX)/==g" > "${subs}"
 	make -V PLIST_SUB |
 	awk -F = '
+END {
+	for (I=0; I<COUNT; I++) {
+		MAXL = 0
+		MAXJ = 0
+		for (J in LVAL) {
+			TEST = length( LVAL[J] )
+			if ( TEST > MAXL ) {
+				MAXL = TEST
+				MAXJ = J
+			}
+		}
+		print "s=" LVAL[ MAXJ ] "=%%" LKEY[ MAXJ ] "%%=g"
+		LVAL[MAXJ] = ""
+	}
+}
 {
 	QT = "\""
 	LINE = $0
@@ -112,6 +127,8 @@ plist_sub() {
 			VAL = substr( LINE, 1, I - 1 )
 			LINE = substr( LINE, I )
 		}
+		if ( KEY == "LIB32DIR" )
+			continue
 		if ( KEY == "XAWVER" )
 			continue
 		if ( VAL == "" )
@@ -121,7 +138,9 @@ plist_sub() {
 		if ( VAL == "%D" )
 			continue
 		gsub( "[.]", "[.]", VAL )
-		print "s=" VAL "=%%" KEY "%%=g"
+		LVAL[ COUNT ] = VAL
+		LKEY[ COUNT ] = KEY
+		COUNT++
 	}
 }' >> "${subs}"
 }
@@ -441,15 +460,21 @@ make_packages_in_dir() {
 			fi
 			if test -d /usr/local
 			then
-				find -d /usr/local -type f |
+				find -d /usr/local -type f -or -type l |
+				sort |
 				sed -f "${subs}" >> "${plistlog}"
-				find -d /usr/local -type l |
-				sed -f "${subs}" >> "${plistlog}"
-				cleanmtree /usr/local /tmp/local \
-					/etc/mtree/BSD.local.dist
+				if test -f "${portsdir}/Templates/BSD.local.dist"
+				then
+					cleanmtree /usr/local /tmp/local \
+						"${portsdir}/Templates/BSD.local.dist"
+				else
+					cleanmtree /usr/local /tmp/local \
+						"/etc/mtree/BSD.local.dist"
+				fi
 				if test -d /usr/local
 				then
 					find -d /usr/local -type d |
+					sort -r |
 					sed -f "${subs}" |
 					plist_dir >> "${plistlog}"
 				fi
