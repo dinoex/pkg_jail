@@ -761,10 +761,22 @@ fetch_recursive_distfiles_in_dir() {
 	)
 }
 #
+#
+#
+move_dependent_away() {
+	local incache
+	grep -l -r "^@pkgdep ${1}$" "${pkginfo_cache}/" |
+	while read incache
+	do
+		file="${incache#${pkginfo_cache}/}"
+		move_away "${file}"
+	done
+}
+#
 # move outdated package int seperate dir for cleanup
 # usage: move_away package
 move_away() {
-	if test -d "${pkgold}"
+	if test -d "${pkgold}" -a -f "${1}"
 	then
 		# move it if the "Old" directory exists.
 		mv -f "${1}" "${pkgold}/${1}"
@@ -774,6 +786,7 @@ move_away() {
 		then
 			rm -f "${saved}"
 		fi
+		move_dependent_away "${file%${ext}}"
 	fi
 }
 #
@@ -799,6 +812,11 @@ clean_package_all() {
 	cd ${pkgall} || exit 69
 	for i in *
 	do
+		# is the package already moved away?
+		if test ! -f "${i}"
+		then
+			continue
+		fi
 		# ist this package up to date?
 		origin=`pkg_info -q -o ${i}`
 		if test "${origin}" = ""
