@@ -802,11 +802,16 @@ fetch_recursive_distfiles_in_dir() {
 #
 move_dependent_away() {
 	local incache
-	grep -l -r "^@pkgdep ${1}$" "${pkginfo_cache}/" |
+	grep -l -r "^[@]pkgdep ${1}"'$' "${pkginfo_cache}/" |
 	while read incache
 	do
 		file="${incache#${pkginfo_cache}/}"
 		move_away "${file}"
+		if test -f "${incache}"
+		then
+			# obsolte cache file
+			rm -f "${incache}"
+		fi
 	done
 }
 #
@@ -1924,6 +1929,7 @@ clean-packages)
 	ext=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_SUFX`
 	pkgall="${packages}/All"
 	pkgold="${packages}/Old"
+	quiet_mkdir "${pkgold}"
 	#
 	# save pwd
 	(
@@ -1935,6 +1941,7 @@ clean-packages)
 clean-openssl-packages)
 	pkgall="${packages}/All"
 	pkgold="${packages}/Old"
+	quiet_mkdir "${pkgold}"
 	#
 	# save pwd
 	(
@@ -1946,6 +1953,7 @@ clean-openssl-packages)
 clean-distfiles)
 	distdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V DISTDIR`
 	old="${distdir}/Old"
+	quiet_mkdir "${old}"
 	#
 	clean_distfiles
 	next_target "${@}"
@@ -2098,6 +2106,7 @@ check-installed-ports)
 	shift
 	tmp1="/tmp/check-listed.$$"
 	tmp2="/tmp/check-installed.$$"
+	quiet_mkdir "${localdir}/data"
 	defaultdata="data/install-packages.${hostname}"
 	if test ! -f "${defaultdata}"
 	then
