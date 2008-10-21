@@ -1745,6 +1745,7 @@ usage() {
 	echo "    ${0##*/} cvsup ..." >&2
 	echo "    ${0##*/} full-update-jail [retry] ..." >&2
 	echo "    ${0##*/} show-extra-files" >&2
+	echo "    ${0##*/} check-update ..." >&2
 	exit 64
 }
 #
@@ -2216,6 +2217,12 @@ full-update-jail)
 	;;
 show-extra-files)
 	show_extra_files
+	;;
+check-update)
+	/bin/sh "${0}" check-installed-ports
+	/bin/sh "${0}" show-missing-packages
+	/bin/sh "${0}" show-missing-installed
+	next_target "${@}"
 	;;
 *)
 	usage
