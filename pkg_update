@@ -267,7 +267,13 @@ port_uptodate() {
 			echo "pkg_add ${pkgfile}"
 			case "$1" in
 			make*)
-				pkg_add ${pkgfile}
+				local_env=""
+				if test -f "${fulldir}/Env.local"
+				then
+					echo "=== Reading ${fulldir}/Env.local"
+					local_env="env "`tr '\n' ' ' < "${fulldir}/Env.local"`
+				fi
+				${local_env} pkg_add ${pkgfile}
 				if test -e ${pkg_dbdir}/${pkgname}/+CONTENTS
 				then
 					continue
@@ -322,10 +328,16 @@ port_uptodate() {
 		dir="${base##${portsdir}/}"
 		dir="${dir##${localdir}/}"
 		log=`echo "${dir}" | sed -e 's=/=,=g'`
-		echo "cd ${base} && make package >> ${logdir}/err,${log} 2>&1"
+		local_env=""
+		if test -f "${base}/Env.local"
+		then
+			echo "=== Reading ${base}/Env.local"
+			local_env="env "`tr '\n' ' ' < "${base}/Env.local"`
+		fi
+		echo "cd ${base} && ${local_env} make package >> ${logdir}/err,${log} 2>&1"
 		case "$1" in
 		make*)
-			( cd "${base}" && make package </dev/null >> "${logdir}/err,${log}" 2>&1 )
+			( cd "${base}" && ${local_env} make package </dev/null >> "${logdir}/err,${log}" 2>&1 )
 			if test ! -e "${pkg_dbdir}/${pkgname}/+CONTENTS"
 			then
 				noinstall=`cd "${base}" && make -V NO_INSTALL`
