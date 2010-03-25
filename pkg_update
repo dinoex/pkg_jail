@@ -1060,6 +1060,53 @@ clean_distfiles() {
 	done
 }
 #
+# Sync distfiles with a mirror
+# Usage: merge_distfiles
+merge_distfiles() {
+	if test ! -d "${mergedistdir}"
+	then
+		echo "${mergedistdir}: no such Directory" >&2
+		return
+	fi
+	find "${distdir}" -type f |
+	sort > /tmp/distfiles.1
+	find "${mergedistdir}" -type f |
+	sed -e "s=${mergedistdir}=${distdir}=" |
+	sort > /tmp/distfiles.2
+	#diff -u /tmp/distfiles.2 /tmp/distfiles.1
+	comm -23 /tmp/distfiles.1 /tmp/distfiles.2 |
+	while read name
+	do
+		dir="${name%/*}"
+		xfile="${name##*/}"
+		dir="${dir#${distdir}}"
+		if test -f "${mergedistdir}/${dir}${xfile}"
+		then
+			continue
+		fi
+		case "${dir}" in
+		*Old*)
+			if test -f "${mergedistdir}/${dir#Old}${xfile}"
+			then
+				continue
+			fi
+			;;
+		*)
+			if test -f "${mergedistdir}/Old/${dir}${xfile}"
+			then
+				continue
+			fi
+		esac
+		if test ! -d "${mergedistdir}${dir}"
+		then
+			echo \
+			mkdir -p "${mergedistdir}${dir}"
+		fi
+		echo \
+		cp -pi "${name}" "${mergedistdir}${dir}"
+	done
+}
+#
 # try to fix as much dependecy problens in installed ports
 # Usage: dependency_update
 dependency_update() {
@@ -1732,6 +1779,7 @@ usage() {
 	echo "    ${0##*/} clean-packages ..." >&2
 	echo "    ${0##*/} clean-openssl-packages ..." >&2
 	echo "    ${0##*/} clean-distfiles ..." >&2
+	echo "    ${0##*/} merge-distfiles ..." >&2
 	echo "    ${0##*/} fetch-distfiles [port] [...]" >&2
 	echo "    ${0##*/} fetch-recursive-distfiles [port] [...]" >&2
 	echo "    ${0##*/} dependency-update ..." >&2
@@ -1964,6 +2012,14 @@ clean-distfiles)
 	quiet_mkdir "${old}"
 	#
 	clean_distfiles
+	next_target "${@}"
+	;;
+merge-distfiles)
+	distdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V DISTDIR`
+	mergedistdir="${MERGEDISTDIR-/media/ports/distfiles}"
+	old="${distdir}/Old"
+	#
+	merge_distfiles
 	next_target "${@}"
 	;;
 dependency-update)
