@@ -1,6 +1,6 @@
 #!/bin/sh
 #       $Id$
-#	$FreeBSD$
+#       $FreeBSD: ports/ports-mgmt/pkg_jail/files/pkg_update,v 1.4 2011/10/18 04:21:38 dinoex Exp $
 #
 # Copyright (c) 2001-2006
 #       by Dirk Meyer, All rights reserved.
@@ -2285,6 +2285,7 @@ full-update-jail)
 		/bin/sh "${0}" cvsup
 		;;
 	esac
+	/bin/sh "${0}" clean-distfiles
 	/bin/sh "${0}" clean-packages
 	rm -f "${logdir}/"err,*
 	/bin/sh "${0}" make-packages
