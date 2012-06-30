@@ -2022,7 +2022,7 @@ clean-distfiles)
 	;;
 merge-distfiles)
 	distdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V DISTDIR`
-	mergedistdir="${MERGEDISTDIR-/media/ports/distfiles}"
+	mergedistdir="${MERGEDISTDIR-/media/distfiles}"
 	old="${distdir}/Old"
 	#
 	merge_distfiles
