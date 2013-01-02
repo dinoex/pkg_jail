@@ -2220,7 +2220,7 @@ check-installed-ports)
 			pkgname=`cd "${portsdir}/${origin}" && make -V PKGNAME 2>/dev/null`
 			if test -e "${pkg_dbdir}/${pkgname}/+CONTENTS"
 			then
-				if test -e "${pkg_dbdir}/${pkgname}/+REQUIRED_BY"
+				if test -s "${pkg_dbdir}/${pkgname}/+REQUIRED_BY"
 				then
 					echo "${origin} (dependency)"
 					continue
@@ -2229,7 +2229,7 @@ check-installed-ports)
 				continue
 			fi
 			pkgname=`pkg_info -qO ${origin}`
-			if test -e "${pkg_dbdir}/${pkgname}/+REQUIRED_BY"
+			if test -s "${pkg_dbdir}/${pkgname}/+REQUIRED_BY"
 			then
 				echo "${origin} (old version, dependency)"
 				continue
