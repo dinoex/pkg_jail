@@ -1,6 +1,6 @@
 #!/bin/sh
-#       $Id$
-#       $FreeBSD: ports/ports-mgmt/pkg_jail/files/pkg_update,v 1.4 2011/10/18 04:21:38 dinoex Exp $
+#	$Id$
+#	$FreeBSD: head/ports-mgmt/pkg_jail/files/pkg_update 309818 2013-01-02 14:00:42Z dinoex $
 #
 # Copyright (c) 2001-2006
 #       by Dirk Meyer, All rights reserved.
@@ -346,12 +346,31 @@ port_uptodate() {
 				yes|YES)
 					;;
 				*)
-					echo "=====================================" >&2
-					echo "=== package ${pkgname} was not installed" >&2
-					echo "=====================================" >&2
-					echo "=== package ${pkgname} was not installed" \
-						>> ${logdir}/err,${log}
-					return 2
+					nostage=`cd "${base}" && make -V NO_STAGE`
+					case "${nostage}" in
+					yes|YES)
+						echo "=====================================" >&2
+						echo "=== package ${pkgname} was not installed" >&2
+						echo "=====================================" >&2
+						echo "=== package ${pkgname} was not installed" \
+							>> ${logdir}/err,${log}
+						return 2
+						;;
+					*)
+						# install staged package
+						pkgfile=`cd "${base}" && make -V PKGFILE`
+						${local_env} pkg_add ${pkgfile}
+						if test ! -e ${pkg_dbdir}/${pkgname}/+CONTENTS
+						then
+							echo "=====================================" >&2
+							echo "pkg_add ${pkgfile} failed, no ${pkgname}!" >&2
+							echo "=====================================" >&2
+							echo "=== package ${pkgname} can not be installed" \
+								>> ${logdir}/err,${log}
+						fi
+						;;
+					esac
+					;;
 				esac
 			fi
 			pkgfile=`cd "${base}" && make -V PKGFILE`
