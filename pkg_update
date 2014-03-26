@@ -1,6 +1,6 @@
 #!/bin/sh
 #	$Id$
-#	$FreeBSD: head/ports-mgmt/pkg_jail/files/pkg_update 309818 2013-01-02 14:00:42Z dinoex $
+#	$FreeBSD: head/ports-mgmt/pkg_jail/files/pkg_update 328867 2013-09-30 20:37:58Z dinoex $
 #
 # Copyright (c) 2001-2006
 #       by Dirk Meyer, All rights reserved.
@@ -335,7 +335,12 @@ port_uptodate() {
 			echo "=== Reading ${base}/Env.local"
 			local_env="env "`tr '\n' ' ' < "${base}/Env.local"`
 		fi
-		echo "cd ${base} && ${local_env} make package >> ${logdir}/err,${log} 2>&1"
+		prefix="/usr/local"
+		if test ! -d "${prefix}"
+		then
+			mkdir -p "${prefix}"
+		fi
+		echo "cd ${base} && ${local_env} make package > ${logdir}/err,${log} 2>&1"
 		case "$1" in
 		make*)
 			( cd "${base}" && ${local_env} make package </dev/null >> "${logdir}/err,${log}" 2>&1 )
@@ -376,6 +381,10 @@ port_uptodate() {
 			pkgfile=`cd "${base}" && make -V PKGFILE`
 			if test -e "${pkgfile}"
 			then
+				if test -f "${logdir}/build,${log}"
+				then
+					mv -f "${logdir}/build,${log}" "${logdir}/last,${log}"
+				fi
 				mv -f "${logdir}/err,${log}" "${logdir}/build,${log}"
 				( cd ${base} && make clean NOCLEANDEPENDS=yes )
 			else
@@ -432,11 +441,12 @@ make_packages_in_dir() {
 		cd "${dir}" || return 69
 
 		wrkdir=`make -V WRKDIRPREFIX`
+		prefix="/usr/local"
 		if ! test "${wrkdir}" = ""
 		then
-			rm -rf ${wrkdir}/*
+			rm -rf "${wrkdir}"/*
 			pkg_delete -f ${pkg_dbdir}/* >/dev/null 2>&1
-			rm -rf /usr/local/*
+			rm -rf "${prefix}"/*
 		fi
 		
 		port_uptodate show > "${tmpshow}"
@@ -490,22 +500,22 @@ make_packages_in_dir() {
 				sed -e 's=^=@dirrm =' >> "${plistlog}"
 				rm -rf /root/GNUstep
 			fi
-			if test -d /usr/local
+			if test -d "${prefix}"
 			then
-				find -d /usr/local -type f -or -type l |
+				find -d "${prefix}" -type f -or -type l |
 				sort |
 				sed -f "${subs}" >> "${plistlog}"
 				if test -f "${portsdir}/Templates/BSD.local.dist"
 				then
-					cleanmtree /usr/local /tmp/local \
+					cleanmtree "${prefix}" /tmp/local \
 						"${portsdir}/Templates/BSD.local.dist"
 				else
-					cleanmtree /usr/local /tmp/local \
+					cleanmtree "${prefix}" /tmp/local \
 						"/etc/mtree/BSD.local.dist"
 				fi
-				if test -d /usr/local
+				if test -d "${prefix}"
 				then
-					find -d /usr/local -type d |
+					find -d "${prefix}" -type d |
 					sort -r |
 					sed -f "${subs}" |
 					plist_dir >> "${plistlog}"
