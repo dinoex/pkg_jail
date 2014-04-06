@@ -509,6 +509,10 @@ port_uptodate() {
 			pkgfile=`cd "${base}" && make -V PKGFILE`
 			if test -e "${pkgfile}"
 			then
+				if test -f "${logdir}/build,${log}"
+				then
+					mv -f "${logdir}/build,${log}" "${logdir}/last,${log}"
+				fi
 				mv -f "${logdir}/err,${log}" "${logdir}/build,${log}"
 				( cd ${base} && make clean NOCLEANDEPENDS=yes )
 				if run_pkg_installed
@@ -2042,7 +2046,7 @@ nowarn="COMMENT=0 CATEGORIES=0 PORTVERSION=0"
 portsdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PORTSDIR`
 pkg_dbdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_DBDIR`
 packages=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PACKAGES`
-if test -f /usr/bin/pkg_add
+if test -f /usr/sbin/pkg_add
 then
 	pkgng=""
 else
