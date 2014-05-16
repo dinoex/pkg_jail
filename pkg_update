@@ -246,12 +246,12 @@ run_pkg_delete_all() {
 		pkg_delete -f ${pkg_dbdir}/* >/dev/null 2>&1
 		return
 	fi
-	installed=`pkg query -e '%p == /usr/local' '%n'`
+	installed=`pkg query -e '%p == /usr/local' '%o'; pkg query -e '%p == /compat/linux' '%o';`
 	if test "${installed}" = ""
 	then
 		return
 	fi
-	pkg delete -y ${installed}
+	pkg delete -y -f ${installed}
 	return
 }
 
