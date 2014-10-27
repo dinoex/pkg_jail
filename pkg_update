@@ -2071,11 +2071,15 @@ nowarn="COMMENT=0 CATEGORIES=0 PORTVERSION=0"
 portsdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PORTSDIR`
 pkg_dbdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_DBDIR`
 packages=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PACKAGES`
-if test -e /usr/sbin/pkg
+pkgng="yes"
+if test ! -e /usr/sbin/pkg
 then
-	pkgng="yes"
-else
 	pkgng=""
+else
+	if test ! -e /var/db/pkg/local.sqlite
+	then
+		pkgng=""
+	fi
 fi
 quiet_mkdir "${pkginfo_cache}"
 #
@@ -2107,6 +2111,10 @@ make-packages)
 			make_packages_in_dir "${i}"
 		fi
 	done
+	if test "${pkgng}" != ""
+	then
+		pkg repo "${packages}/All"
+	fi
 	;;
 add-packages)
 	shift
@@ -2542,7 +2550,8 @@ check-update)
 	next_target "${@}"
 	;;
 update-pkg)
-	cd "${portsdir}/ports-mgmt/pkg" && make clean deinstall PREFIX=/usr/pkgng package install
+	/etc/rc.d/ldconfig start
+	cd "${portsdir}/ports-mgmt/pkg" && make clean deinstall PREFIX=/usr/pkgng PKGNAMESUFFIX=-pkgng package install
 	if test ! -h /usr/sbin/pkg
 	then
 		mv -f /usr/sbin/pkg /usr/sbin/pkg.orig
