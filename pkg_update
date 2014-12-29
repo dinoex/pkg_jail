@@ -1,6 +1,6 @@
 #!/bin/sh
 #	$Id$
-#	$FreeBSD: head/ports-mgmt/pkg_jail/files/pkg_update 344148 2014-02-13 21:35:23Z dinoex $
+#	$FreeBSD: head/ports-mgmt/pkg_jail/files/pkg_update 367326 2014-09-05 07:47:03Z dinoex $
 #
 # Copyright (c) 2001-2006
 #       by Dirk Meyer, All rights reserved.
@@ -1050,6 +1050,11 @@ clean_package_all() {
 		then
 			continue
 		fi
+		case "${i}" in
+		digests.txz|meta.txz|packagesite.txz)
+			continue
+			;;
+		esac
 		# ist this package up to date?
 		origin=`run_pkg_info_origin_file "${i}"`
 		if test "${origin}" = ""
@@ -2562,6 +2567,15 @@ check-update)
 	next_target "${@}"
 	;;
 update-pkg)
+	defaultdata="${localdir}/data/make-packages.${hostname}"
+	if test ! -f "${defaultdata}"
+	then
+		echo "!!WARNNING!! Such a file should only exist for your build jail" >&2
+		echo "!!WARNNING!! This will uninstall all packages." >&2
+		echo "!!WARNNING!! This will delete your config in /usr/local." >&2
+		exit 64
+	fi
+	pkg delete -y -a -f
 	/etc/rc.d/ldconfig start
 	cd "${portsdir}/ports-mgmt/pkg" && make clean deinstall PREFIX=/usr/pkgng PKGNAMESUFFIX=-pkgng package install
 	if test ! -L /usr/sbin/pkg
@@ -2569,7 +2583,8 @@ update-pkg)
 		mv -f /usr/sbin/pkg /usr/sbin/pkg.orig
 		ln -s "${pkg_prefix}/sbin/pkg" /usr/sbin/pkg
 	fi
-	next_target make-packages ports-mgmt/pkg
+	cd "${portsdir}/ports-mgmt/pkg" && make clean package install
+	pkg delete -y -f pkg
 	;;
 *)
 	usage
