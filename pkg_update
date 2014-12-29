@@ -450,6 +450,12 @@ port_uptodate() {
 			esac
 			continue
 		fi
+		noinstall=`cd "${fulldir}" && make -V NO_INSTALL`
+		case "${noinstall}" in
+		yes|YES)
+			continue
+			;;
+		esac
 		echo "# missing package: ${pkgname} from ${dir}"
 		echo "# missing package: ${pkgname} from ${dir}" >> ${tmpupdated}
 		case "$1" in
@@ -1096,7 +1102,7 @@ clean_package_all() {
 					move_away ${i}
 					break
 				fi
-				pnew=`cd "${depdir}"; make -V PKGFILE`
+				pnew=`cd "${depdir}" && make -V PKGFILE`
 				if test "${pnew}" = "${pkgall}/${pmade}"
 				then
 					if test "${pmade}" -nt "${ptarget}"
@@ -1113,6 +1119,12 @@ clean_package_all() {
 				move_away ${i}
 				break
 			else
+				noinstall=`cd "${depdir}" && make -V NO_INSTALL`
+				case "${noinstall}" in
+				yes|YES)
+					continue
+					;;
+				esac
 				echo "${i}: dependency ${pmade} missing!"
 				move_away ${i}
 				break
@@ -2552,11 +2564,12 @@ check-update)
 update-pkg)
 	/etc/rc.d/ldconfig start
 	cd "${portsdir}/ports-mgmt/pkg" && make clean deinstall PREFIX=/usr/pkgng PKGNAMESUFFIX=-pkgng package install
-	if test ! -h /usr/sbin/pkg
+	if test ! -L /usr/sbin/pkg
 	then
 		mv -f /usr/sbin/pkg /usr/sbin/pkg.orig
 		ln -s "${pkg_prefix}/sbin/pkg" /usr/sbin/pkg
 	fi
+	next_target make-packages ports-mgmt/pkg
 	;;
 *)
 	usage
