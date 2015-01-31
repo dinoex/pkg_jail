@@ -637,6 +637,7 @@ make_packages_in_dir() {
 			if test "${err}" != "0"
 			then
 				echo "port_uptodate: aborted!"
+				return
 			fi
 
 			env ${pkg_env} make deinstall
@@ -2130,7 +2131,19 @@ make-packages)
 	done
 	if test "${pkgng}" != ""
 	then
-		pkg repo "${packages}/All"
+		if test -f "${packages}/packagesite.txz"
+		then
+			mv "${packages}/Old" "${packages}-Old"
+			pkg repo "${packages}"
+			mv "${packages}-Old" "${packages}/Old"
+		else
+			if test -f "${packages}/All/packagesite.txz"
+			then
+				pkg repo "${packages}/All"
+			else
+				pkg repo "${packages}/Latest"
+			fi
+		fi
 	fi
 	;;
 add-packages)
