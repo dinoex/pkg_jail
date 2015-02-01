@@ -2024,6 +2024,38 @@ validate_make_conf() {
 	esac
 }
 #
+# update pkg tools
+update_pkg() {
+	if test -f "${pkg_prefix}/sbin/pkg"
+	then
+		${pkg_prefix}/sbin/pkg delete -y -a -f
+	fi
+	/etc/rc.d/ldconfig start
+	cd "${portsdir}/ports-mgmt/pkg" && make clean deinstall PREFIX=/usr/pkgng PKGNAMESUFFIX=-pkgng package install
+	if test ! -L /usr/sbin/pkg
+	then
+		mv -f /usr/sbin/pkg /usr/sbin/pkg.orig
+		ln -s "${pkg_prefix}/sbin/pkg" /usr/sbin/pkg
+	fi
+	cd "${portsdir}/ports-mgmt/pkg" && make clean package install
+	${pkg_prefix}/sbin/pkg delete -y -f pkg
+}
+#
+#
+# update if pkg tools have changed
+check_update_pkg() {
+	if test -f "${pkg_prefix}/sbin/pkg"
+	then
+		old=`pkg query -e '%p == /usr/pkgng' %n-%v`
+		pkgname=`cd "${portsdir}/ports-mgmt/pkg" && make PKGNAMESUFFIX=-pkgng -V PKGNAME`
+		if test "${old}" = "${pkgname}"
+		then
+			return
+		fi
+	fi
+	update_pkg
+}
+#
 # inform usage
 usage() {
 	echo "Usage:" >&2
@@ -2115,6 +2147,7 @@ make-packages)
 	fi
 	shift
 	validate_make_conf
+	check_update_pkg
 	parse_default "${#}"
 	quiet_mkdir "${localdir}/data" "${logdir}"
 	for i in "${@}"
@@ -2588,16 +2621,7 @@ update-pkg)
 		echo "!!WARNNING!! This will delete your config in /usr/local." >&2
 		exit 64
 	fi
-	pkg delete -y -a -f
-	/etc/rc.d/ldconfig start
-	cd "${portsdir}/ports-mgmt/pkg" && make clean deinstall PREFIX=/usr/pkgng PKGNAMESUFFIX=-pkgng package install
-	if test ! -L /usr/sbin/pkg
-	then
-		mv -f /usr/sbin/pkg /usr/sbin/pkg.orig
-		ln -s "${pkg_prefix}/sbin/pkg" /usr/sbin/pkg
-	fi
-	cd "${portsdir}/ports-mgmt/pkg" && make clean package install
-	pkg delete -y -f pkg
+	update_pkg
 	;;
 *)
 	usage
