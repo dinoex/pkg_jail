@@ -234,7 +234,7 @@ run_pkg_delete() {
 			echo "## current port is not installed: ${pkgname}"
 		fi
 	else
-		pkg delete "${pkgname}"
+		${pkg} delete "${pkgname}"
 	fi
 }
 
@@ -251,7 +251,7 @@ run_pkg_delete_all() {
 	then
 		return
 	fi
-	pkg delete -y -f ${installed}
+	${pkg} delete -y -f ${installed}
 	return
 }
 
@@ -260,7 +260,7 @@ run_pkg_info_installed() {
 	then
 		pkg_info -q -O "${1}"
 	else
-		pkg query -e "%o == ${1}" '%o'
+		${pkg} query -e "%o == ${1}" '%o'
 	fi
 }
 
@@ -269,7 +269,7 @@ run_pkg_info_origin_file() {
 	then
 		pkg_info -q -o "${1}"
 	else
-		pkg info -q -o -F "${1}"
+		${pkg} info -q -o -F "${1}"
 	fi
 }
 
@@ -278,7 +278,7 @@ run_pkg_info_origin_name() {
 	then
 		pkg_info -q -o "${1}"
 	else
-		pkg info -q -o "${1}"
+		${pkg} info -q -o "${1}"
 	fi
 }
 
@@ -287,7 +287,7 @@ run_pkg_info_origin_all() {
 	then
 		pkg_info -q -o -a
 	else
-		pkg query '%o'
+		${pkg} query '%o'
 	fi
 }
 
@@ -296,7 +296,7 @@ run_pkg_info_dependecies() {
 	then
 		pkg_info -q -r "${1}" | sed 's|^@pkgdep ||'
 	else
-		pkg info -q -d -F "${1}"
+		${pkg} info -q -d -F "${1}"
 	fi
 }
 
@@ -305,7 +305,7 @@ run_pkg_info_list() {
 	then
 		pkg_info
 	else
-		pkg info
+		${pkg} info
 	fi
 }
 
@@ -314,7 +314,7 @@ run_pkg_info_requiredby() {
 	then
 		pkg_info -qR "${1}"
 	else
-		pkg info -q -r "${1}"
+		${pkg} info -q -r "${1}"
 	fi
 }
 
@@ -1429,7 +1429,7 @@ update_origin() {
 	echo "Updating: ${origin} -> ${movedto}"
 	if test "${pkgng}" != ""
 	then
-		pkg set -o "${origin}:${movedto}"
+		${pkg} set -o "${origin}:${movedto}"
 		return
 	fi
 	sed -i -e "s=${origin}=${movedto}=" "${pkg_dbdir}/${installed}/+CONTENTS"
@@ -1453,7 +1453,7 @@ make_version_list() {
 		then
 			pkg_version -v -L = /dev/null | grep -v bsdpan- > "${cache}"
 		else
-			pkg version -v -L = /dev/null | grep -v bsdpan- > "${cache}"
+			${pkg} version -v -L = /dev/null | grep -v bsdpan- > "${cache}"
 		fi
 	fi
 }
@@ -2026,27 +2026,27 @@ validate_make_conf() {
 #
 # update pkg tools
 update_pkg() {
-	if test -f "${pkg_prefix}/sbin/pkg"
+	if test -f "${pkg}"
 	then
-		${pkg_prefix}/sbin/pkg delete -y -a -f
+		${pkg} delete -y -a -f
 	fi
 	/etc/rc.d/ldconfig start
 	cd "${portsdir}/ports-mgmt/pkg" && make clean deinstall PREFIX=/usr/pkgng PKGNAMESUFFIX=-pkgng package install
 	if test ! -L /usr/sbin/pkg
 	then
 		mv -f /usr/sbin/pkg /usr/sbin/pkg.orig
-		ln -s "${pkg_prefix}/sbin/pkg" /usr/sbin/pkg
+		ln -s "${pkg}" /usr/sbin/pkg
 	fi
 	cd "${portsdir}/ports-mgmt/pkg" && make clean package install
-	${pkg_prefix}/sbin/pkg delete -y -f pkg
+	${pkg} delete -y -f pkg
 }
 #
 #
 # update if pkg tools have changed
 check_update_pkg() {
-	if test -f "${pkg_prefix}/sbin/pkg"
+	if test -f "${pkg}"
 	then
-		old=`pkg query -e '%p == /usr/pkgng' %n-%v`
+		old=`${pkg} query -e '%p == /usr/pkgng' %n-%v`
 		pkgname=`cd "${portsdir}/ports-mgmt/pkg" && make PKGNAMESUFFIX=-pkgng -V PKGNAME`
 		if test "${old}" = "${pkgname}"
 		then
@@ -2114,6 +2114,7 @@ failed="/tmp/easy-failed"
 failcount="/tmp/easy-failecount.txt"
 pkginfo_cache="/var/tmp/pkginfo_cache"
 pkg_prefix="/usr/pkgng"
+pkg="${pkg_prefix}/sbin/pkg"
 pkg_env="PKG_DEPENDS= PKG_PREFIX=${pkg_prefix} PKG_BIN=${pkg_prefix}/sbin/pkg-static"
 #
 #	get all path information from /etc/make.conf
@@ -2167,14 +2168,14 @@ make-packages)
 		if test -f "${packages}/packagesite.txz"
 		then
 			mv "${packages}/Old" "${packages}-Old"
-			pkg repo "${packages}"
+			${pkg} repo "${packages}"
 			mv "${packages}-Old" "${packages}/Old"
 		else
 			if test -f "${packages}/All/packagesite.txz"
 			then
-				pkg repo "${packages}/All"
+				${pkg} repo "${packages}/All"
 			else
-				pkg repo "${packages}/Latest"
+				${pkg} repo "${packages}/Latest"
 			fi
 		fi
 	fi
