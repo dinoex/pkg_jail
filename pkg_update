@@ -3,9 +3,9 @@
 #	$FreeBSD: head/ports-mgmt/pkg_jail/files/pkg_update 367326 2014-09-05 07:47:03Z dinoex $
 #
 # Copyright (c) 2001-2006
-#       by Dirk Meyer, All rights reserved.
-#       Im Grund 4, 34317 Habichtswald, Germany
-#       Email: dirk.meyer@dinoex.sub.org
+#	by Dirk Meyer, All rights reserved.
+#	Im Grund 4, 34317 Habichtswald, Germany
+#	Email: dirk.meyer@dinoex.sub.org
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -190,6 +190,41 @@ run_pkg_installed() {
 			echo "#installed:	${pkgname} from ${dir}"
 			return 0
 		fi
+	fi
+	return 1
+}
+
+run_pkg_match() {
+	if test "${pkgng}" = ""
+	then
+		if test -e ${pkg_dbdir}/${pkgname}/+CONTENTS
+		then
+			if test -s "${pkg_dbdir}/${pkgname}/+REQUIRED_BY"
+			then
+#				echo "${origin} (dependency)"
+				return 0
+			fi
+			echo "${origin}"
+			return 0
+		fi
+		pkgname=`run_pkg_info_installed "${origin}"`
+		if test -s "${pkg_dbdir}/${pkgname}/+REQUIRED_BY"
+		then
+			echo "${origin} (old version, dependency)"
+			return 0
+		fi
+		echo "${origin} (old version)"
+		return 0
+	else
+		pkgname=`run_pkg_info_installed "${origin}"`
+		required_by=`pkg info --required-by "${pkgname}" | wc -l`
+		if test "${required_by}" -gt 1
+		then
+#			echo "${origin} (dependency)"
+			return 0
+		fi
+		echo "${origin}"
+		return 0
 	fi
 	return 1
 }
@@ -1489,7 +1524,7 @@ fix_moved_ports() {
 delete_dependent_package() {
 	local installed 
 	installed="${1}"
-        run_pkg_info_requiredby "${installed}" |
+	run_pkg_info_requiredby "${installed}" |
 	while read requiredby
 	do
 		delete_dependent_package "${requiredby}"
@@ -1606,31 +1641,31 @@ replace_package() {
 		return
 	fi
 	installed=`run_pkg_info_installed "${origin}" | wc -l`
-        if test "${installed}" -ne 1
-        then
+	if test "${installed}" -ne 1
+	then
 		echo "${oldpkg}: more than one package from ${origin} found"
 		return
-        fi
+	fi
 	depdir="${portsdir}/${origin}"
 	if test ! -d "${depdir}"
-        then
+	then
 		echo "${oldpkg}: missing ports dir => ${depdir}"
 		return
 	fi
 	addpkg=`cd "${depdir}" && make -V PKGFILE`
 	if test "${addpkg}" = ""
-        then
+	then
 		echo "${oldpkg}: missing or defunt Makefile in dir => ${depdir}"
 		return
 	fi
 	newpkg=`cd "${depdir}" && make -V PKGNAME`
 	if test "${newpkg}" = ""
-        then
+	then
 		echo "${oldpkg}: missing or defunt Makefile in dir => ${depdir}"
 		return
 	fi
 	if test ! -f "${addpkg}"
-        then
+	then
 		echo "${oldpkg}: no package found: ${addpkg}"
 		return
 	fi
@@ -1651,8 +1686,8 @@ replace_package() {
 		mv -i "${obsolete}/${oldpkg}" "${pkg_dbdir}/${oldpkg}"
 		continue
 	fi
-        if test "${newpkg}" = "${pkgall}/${i}"
-        then
+	if test "${newpkg}" = "${pkgall}/${i}"
+	then
 		echo "${oldpkg}: port has same version"
 		fgrep -H -x "${oldpkg}" "${pkg_dbdir}"/*/+REQUIRED_BY |
 		sort > ${tmp3}
@@ -1821,7 +1856,7 @@ easy_dependent_package() {
 	then
 		return
 	fi
-        run_pkg_info_requiredby "${installed}" |
+	run_pkg_info_requiredby "${installed}" |
 	while read requiredby
 	do
 		easy_dependent_package "${requiredby}"
@@ -2114,7 +2149,6 @@ failed="/tmp/easy-failed"
 failcount="/tmp/easy-failecount.txt"
 pkginfo_cache="/var/tmp/pkginfo_cache"
 pkg_prefix="/usr/pkgng"
-pkg="${pkg_prefix}/sbin/pkg"
 pkg_env="PKG_DEPENDS= PKG_PREFIX=${pkg_prefix} PKG_BIN=${pkg_prefix}/sbin/pkg-static"
 #
 #	get all path information from /etc/make.conf
@@ -2123,6 +2157,13 @@ portsdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PORTSDIR`
 pkg_dbdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_DBDIR`
 packages=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PACKAGES`
 pkgng="yes"
+defaultdata="${localdir}/data/make-packages.${hostname}"
+if test ! -f "${defaultdata}"
+then
+	pkg="pkg"
+else
+	pkg="${pkg_prefix}/sbin/pkg"
+fi
 if test ! -e /usr/sbin/pkg
 then
 	pkgng=""
@@ -2165,19 +2206,9 @@ make-packages)
 	done
 	if test "${pkgng}" != ""
 	then
-		if test -f "${packages}/packagesite.txz"
-		then
-			mv "${packages}/Old" "${packages}-Old"
-			${pkg} repo "${packages}"
-			mv "${packages}-Old" "${packages}/Old"
-		else
-			if test -f "${packages}/All/packagesite.txz"
-			then
-				${pkg} repo "${packages}/All"
-			else
-				${pkg} repo "${packages}/Latest"
-			fi
-		fi
+		mv "${packages}/Old" "${packages}-Old"
+		${pkg} repo "${packages}"
+		mv "${packages}-Old" "${packages}/Old"
 	fi
 	;;
 add-packages)
@@ -2382,7 +2413,7 @@ show-missing-reinstall)
 		pkgfile=`cd "${portsdir}/${movedto}" && make -V PKGFILE`
 		if test ! -f "${pkgfile}"
 		then
-			echo "        ${movedto} no new package"
+			echo "	${movedto} no new package"
 			continue
 		fi
 		pkgname=`cd "${portsdir}/${movedto}" && make -V PKGNAME`
@@ -2403,7 +2434,7 @@ show-missing-reinstall)
 			echo "old     ${movedto} installed"
 			continue
 		fi
-		echo "        ${movedto} package not installed"
+		echo "	${movedto} package not installed"
 	done
 	;;
 check-reinstall)
@@ -2419,7 +2450,7 @@ check-reinstall)
 		pkgfile=`cd "${portsdir}/${movedto}" && make -V PKGFILE`
 		if test ! -f "${pkgfile}"
 		then
-			echo "        ${movedto} no new package"
+			echo "	${movedto} no new package"
 			continue
 		fi
 	done
@@ -2450,10 +2481,10 @@ clean-reinstall)
 		pkgfile=`cd "${portsdir}/${movedto}" && make -V PKGFILE`
 		if test ! -f "${pkgfile}"
 		then
-			echo "        ${movedto} no new package"
+			echo "	${movedto} no new package"
 			continue
 		fi
-		echo "        ${origin} package not installed"
+		echo "	${origin} package not installed"
 	done
 	;;
 show-missing-installed)
@@ -2515,7 +2546,16 @@ check-installed-ports)
 	if test "${obsolete}"
 	then
 		echo "#    not installed, but listed:"
-		echo "${obsolete}"
+		echo "${obsolete}" |
+		while read origin
+		do
+			if test ! -d "${portsdir}/${origin}"
+			then
+				echo "${origin} (no origin)"
+				continue
+			fi
+			echo "${origin}"
+		done
 		echo ""
 	fi
 	obsolete=`comm -13 "${tmp1}" "${tmp2}"`
@@ -2531,23 +2571,7 @@ check-installed-ports)
 				continue
 			fi
 			pkgname=`cd "${portsdir}/${origin}" && make -V PKGNAME 2>/dev/null`
-			if test -e "${pkg_dbdir}/${pkgname}/+CONTENTS"
-			then
-				if test -s "${pkg_dbdir}/${pkgname}/+REQUIRED_BY"
-				then
-					echo "${origin} (dependency)"
-					continue
-				fi
-				echo "${origin}"
-				continue
-			fi
-			pkgname=`run_pkg_info_installed "${origin}"`
-			if test -s "${pkg_dbdir}/${pkgname}/+REQUIRED_BY"
-			then
-				echo "${origin} (old version, dependency)"
-				continue
-			fi
-			echo "${origin} (old version)"
+			run_pkg_match
 		done
 		echo ""
 	fi
