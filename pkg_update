@@ -1,6 +1,6 @@
 #!/bin/sh
 #	$Id$
-#	$FreeBSD: head/ports-mgmt/pkg_jail/files/pkg_update 394202 2015-08-14 10:42:54Z dinoex $
+#	$FreeBSD: head/ports-mgmt/pkg_jail/files/pkg_update 398017 2015-09-26 21:33:51Z dinoex $
 #
 # Copyright (c) 2001-2006
 #	by Dirk Meyer, All rights reserved.
@@ -419,7 +419,10 @@ port_uptodate() {
 	fi
 	#
 	for fulldir in `
-	env ${pkg_env} make all-depends-list |
+	(
+		env ${pkg_env} make build-depends-list
+		env ${pkg_env} make package-depends-list | cut -d " " -f2
+	) |
 	sed -f "${depends}"`
 	do
 		dir="${fulldir##${portsdir}/}"
@@ -1489,7 +1492,7 @@ make_version_list() {
 		then
 			pkg_version -v -L = /dev/null | grep -v bsdpan- > "${cache}"
 		else
-			${pkg} version -v -L = /dev/null | grep -v bsdpan- > "${cache}"
+			${pkg} version -v -L = | grep -v bsdpan- > "${cache}"
 		fi
 	fi
 }
