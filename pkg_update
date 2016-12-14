@@ -1,6 +1,6 @@
 #!/bin/sh
 #	$Id$
-#	$FreeBSD: head/ports-mgmt/pkg_jail/files/pkg_update 400158 2015-10-25 19:06:52Z dinoex $
+#	$FreeBSD: head/ports-mgmt/pkg_jail/files/pkg_update 411390 2016-03-19 11:00:57Z dinoex $
 #
 # Copyright (c) 2001-2006
 #	by Dirk Meyer, All rights reserved.
