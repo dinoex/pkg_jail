@@ -432,6 +432,11 @@ port_uptodate() {
 			continue
 		fi
 		log=`echo "${dir}" | sed -e 's=/=,=g'`
+		if test ! -d "${fulldir}"
+		then
+			echo "Directory not found: ${fulldir}"
+			break
+		fi
 		pkgname=`cd ${fulldir} && make -V PKGNAME`
 		if run_pkg_installed
 		then
@@ -557,6 +562,7 @@ port_uptodate() {
 				then
 					mv -f "${logdir}/build,${log}" "${logdir}/last,${log}"
 				fi
+				( cd ${base} && env ${pkg_env} make stage-qa check-orphans check-sanity </dev/null >> "${logdir}/err,${log}" 2>&1 )
 				mv -f "${logdir}/err,${log}" "${logdir}/build,${log}"
 				( cd ${base} && env ${pkg_env} make clean NOCLEANDEPENDS=yes )
 				if run_pkg_installed
@@ -2510,7 +2516,12 @@ clean-reinstall)
 	done
 	;;
 show-missing-installed)
-	/bin/sh "${0}" show-missing-packages `run_pkg_info_origin_all`
+	if test "${pkgng}" = ""
+        then
+		/bin/sh "${0}" show-missing-packages `run_pkg_info_origin_all`
+	else
+		env ${pkg_env} ${local_env} pkg version -qo -Rl '?'
+	fi
 	;;
 reinstall)
 	exec /bin/sh "${0}" install-packages "${todolist}"
