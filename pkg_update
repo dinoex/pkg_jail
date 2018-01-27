@@ -1,6 +1,6 @@
 #!/bin/sh
 #	$Id$
-#	$FreeBSD: head/ports-mgmt/pkg_jail/files/pkg_update 411390 2016-03-19 11:00:57Z dinoex $
+#	$FreeBSD: head/ports-mgmt/pkg_jail/files/pkg_update 446867 2017-07-29 06:02:24Z dinoex $
 #
 # Copyright (c) 2001-2017 by Dirk Meyer. All rights reserved.
 #   Im Grund 4, 34317 Habichtswald, Germany
@@ -183,7 +183,8 @@ run_pkg_installed() {
 			return 0
 		fi
 	else
-		installed=`pkg query -e "%o == ${dir}" '%o'`
+		# more then one Flavor can be installed
+		installed=`pkg query -e "%o == ${dir}" '%o' | head -1`
 		if test "${installed}" = "${dir}"
 		then
 			echo "#installed:	${pkgname} from ${dir}"
@@ -2121,6 +2122,11 @@ check_update_pkg() {
 		pkgname=`cd "${portsdir}/ports-mgmt/pkg" && make PKGNAMESUFFIX=-pkgng -V PKGNAME`
 		if test "${old}" = "${pkgname}"
 		then
+			if test ! -L /usr/sbin/pkg
+			then
+				mv -f /usr/sbin/pkg /usr/sbin/pkg.orig
+				ln -s "${pkg}" /usr/sbin/pkg
+			fi
 			return
 		fi
 	fi
