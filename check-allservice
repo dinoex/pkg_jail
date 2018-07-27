@@ -7,28 +7,52 @@ service_enabled_filtered()
 	service -e |
 	while read rc
 	do
-		if grep -q -x "${rc}" "/usr/local/etc/allservice.txt"
+		if test -f "/usr/local/etc/allservice.txt"
 		then
-			continue
+			if grep -q -x "${rc}" "/usr/local/etc/allservice.txt"
+			then
+				continue
+			fi
+		fi
+		if test "${filter}" != ""
+		then
+			case "${rc}" in
+			${filter})
+				;;
+			*)
+				continue
+				;;
+			esac
 		fi
 		echo "${rc}"
 	done
 }
 
+filter=""
+case "${1}" in
+local)
+	shift
+	filter="/usr/local/etc/*"
+	;;
+esac
+
+tmpfile="/tmp/allservice.$$.log"
+
 service_enabled_filtered |
 while read rc
 do
 	${rc} status
-done > /tmp/allservice2.log
+done > "${tmpfile}"
 
-run=`fgrep "is running" /tmp/allservice2.log | wc -l`
-fail=`fgrep -v "is running" /tmp/allservice2.log | wc -l`
+run=`fgrep "is running" "${tmpfile}" | wc -l`
+fail=`fgrep -v "is running" "${tmpfile}" | wc -l`
 
 if test ${fail} -gt 0
 then
-	fgrep -v "is running" /tmp/allservice2.log
+	fgrep -v "is running" "${tmpfile}"
 else
 	echo "OK"
 fi
+rm -f "${tmpfile}"
 exit 0
 # eof
