@@ -1,0 +1,32 @@
+.\" $Id$
+.TH CHECK-ALLSERVICE 1 "July 2018" "FreeBSD" "User Manuals"
+.SH NAME
+check-allservice \- Easy monitoring of a FreeBSD services
+.SH SYNOPSIS
+.TP
+.B check-allservice [local]
+.SH DESCRIPTION
+.B check-allservice
+is a script to monitor all services.
+.SH ARGUMENTS
+.TP
+.B local
+Restrict commands to services in /usr/local/etc/*
+.SH "FILES"
+.B /usr/local/etc/allservice.txt
+Rc files listed in here will be ignored.
+.SH "EXAMPLES"
+.TP
+.B Show status of all services.
+.IP
+check-allservice
+.TP
+.B Show status of all services in "/usr/local/etc/*".
+.IP
+check-allservice local
+.SH "SEE ALSO"
+.TP
+.B allservices(1)
+The tool to create packages inside the jail.
+.SH "AUTHOR"
+Dirk Meyer, dinoex@FreeBSD.org

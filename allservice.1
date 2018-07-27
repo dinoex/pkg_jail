@@ -1,0 +1,48 @@
+.\" $Id$
+.TH ALLSERVICE 1 "July 2018" "FreeBSD" "User Manuals"
+.SH NAME
+allservice \- Easy handling of a FreeBSD services
+.SH SYNOPSIS
+.TP
+.B allservice [local] [command]
+.SH DESCRIPTION
+.B allservice
+is a script to run a command on all services.
+.SH ARGUMENTS
+.TP
+.B local
+Restrict commands to services in /usr/local/etc/*
+.TP
+.B start
+Start all services.
+.TP
+.B stop
+Stop all services.
+.TP
+.B restart
+Restart all services.
+.TP
+.B status
+Show status of all services.
+.SH "FILES"
+.B /usr/local/etc/allservice.txt
+Rc files listed in here will be ignored.
+.SH "EXAMPLES"
+.TP
+.B List all service rc files.
+.IP
+allservice
+.TP
+.B Show status of all services.
+.IP
+allservice status
+.TP
+.B Restarting all services after "pkg update".
+.IP
+allservice local restart
+.SH "SEE ALSO"
+.TP
+.B check-allservices(1)
+The tool to create packages inside the jail.
+.SH "AUTHOR"
+Dirk Meyer, dinoex@FreeBSD.org
