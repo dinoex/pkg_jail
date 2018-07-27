@@ -35,17 +35,24 @@ Copy all disfiles found that do not yet exist on the master
 directory "/media/ports/distfiles/".
 .TP
 .B clean-packages
-Find obsolete packages and move them out of the way.
+Find packages thar are obsolete or have changed depedencies and move them out of the way
+to "/usr/ports/packages/Old/".
 .TP
 .B pkg_update clean-openssl-packages
 Find packages that use openssl and move them out of the way
 .TP
 .B full-update-jail
 Do full update cycle:
+.br
 1. "update-ports" to update the ports tree
-2. "clean-packages" to keep only good packages
-3. remove all old error logs
-4. "make-packages" to rebuild missing packages
+.br
+2. "clean-distfiles" to keep only good packages
+.br
+3. "clean-packages" to keep only good packages
+.br
+4. remove all old error logs
+.br
+5. "make-packages" to rebuild missing packages
 .TP
 .B full-update-jail retry
 Skip "update-ports" and procced as above.
@@ -89,7 +96,9 @@ installed on this host.
 .TP
 .B check-update
 1. check-installed-ports
+.br
 2. show-missing-packages
+.br
 3. show-missing-installed
 .TP
 .B clean
@@ -142,7 +151,7 @@ Default location for logsfiles.
 .B /media/ports/distfiles/
 Optional location lor a central hostng of distfiles.
 .SH "EXAMPLES"
-.B pkg_update full-update-jail clean-distfiles
+.B pkg_update full-update-jail
 .SH "SEE ALSO"
 .TP
 .B pkg_jail(1)
