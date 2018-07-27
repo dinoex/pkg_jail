@@ -1,0 +1,253 @@
+#!/bin/sh
+
+LANG="C"
+export LANG
+
+ARCH=`make -V MACHINE_ARCH`
+#HOST=`hostname -s`
+HOST=`hostname -s`"-${ARCH}"
+target="${1}"
+shift
+
+setup_jail5() {
+	D="${1}"
+	if test ! -f "${D}/etc/rc.conf"
+	then
+		echo "$D"
+		( cd /usr/src/etc &&
+		make distribution "DESTDIR=$D" )
+		( cd "${D}"
+		ln -sf dev/null kernel )
+		touch "$D/etc/fstab"
+		cp -pi /etc/localtime "$D/etc/localtime"
+		mkdir -p "$D/root/.ssh"
+		cp -pi /root/.ssh/authorized_keys "$D/root/.ssh/authorized_keys"
+		cp -pi /root/jail.rc.conf "$D/etc/rc.conf"
+		touch "$D/etc/rc.conf"
+		mkdir "$D/usr/ports"
+	fi
+}
+
+setup_mail() {
+	D="${1}"
+	running=`jls -nq | grep "jid=.*${D}"`
+	if test "${running}" = ""
+	then
+		chroot "${D}" /bin/sh -c "cd /etc/mail && make"
+		chroot "${D}" /bin/sh -c "cd /etc/mail && make install"
+	else
+		jid="${running##*jid=}"
+		jid="${jid%% *}"
+		echo "${jid}"
+		echo \
+		jexec "${jid}" /bin/sh -c "cd /etc/mail && make"
+		jexec "${jid}" /bin/sh -c "cd /etc/mail && make"
+		echo \
+		jexec "${jid}" /bin/sh -c "cd /etc/mail && make install"
+		jexec "${jid}" /bin/sh -c "cd /etc/mail && make install"
+	fi
+}
+
+install_jail() {
+	D="${1}"
+	E="${D##*/}"
+	if test -L "${D}/usr/sbin/pkg"
+	then
+		rm -f "${D}/usr/sbin/pkg"
+		mv "${D}/usr/sbin/pkg.orig" "${D}/usr/sbin/pkg"
+	fi
+	make "DESTDIR=${D}" installworld >> "err-${HOST}-installjails-${E}" 2>&1 || exit 1
+	setup_jail5 "${D}"
+	make "DESTDIR=${D}" delete-old RM_I="-f -v"
+	setup_mail "${D}"
+}
+
+case "${target}" in
+update)
+	if test ! -d HISTORY
+	then
+		mkdir HISTORY
+	fi
+	mv -vf err* HISTORY/
+	if test -e /usr/local/bin/svn
+	then
+		svn up | tee "err-${HOST}-${target}" 2>&1 || exit 1
+	else
+		svnlite up | tee "err-${HOST}-${target}" 2>&1 || exit 1
+	fi
+	echo "ok"
+	;;
+buildworld)
+	case "${1}" in
+	esac
+	make "${target}" "${@}" >> "err-${HOST}-${target}" 2>&1 || exit 1
+	echo "ok"
+	;;
+buildkernel)
+	listfile="kernels-${HOST}.txt"
+	if test -f "${listfile}"
+	then
+		for KERNCONF in `grep -v "^#" "${listfile}"`
+		do
+			echo "${target} ${KERNCONF}"
+			make "${target}" "KERNCONF=${KERNCONF}" "${@}" >> "err-${HOST}-${target}-${KERNCONF}" 2>&1 || exit 1
+			echo "ok"
+		done
+		exit
+	fi
+	KERNCONF=`make -V KERNCONF`
+	if test "${KERNCONF}" = ""
+	then
+		KERNCONF="GENERIC"
+	fi
+	make "${target}" "KERNCONF=${KERNCONF}" "${@}" >> "err-${HOST}-${target}-${KERNCONF}" 2>&1 || exit 1
+	echo "ok"
+	;;
+build)
+	sh .make.sh buildworld "${@}" || exit 1
+	sh .make.sh buildkernel "${@}" || exit 1
+	;;
+installkernel)
+	df -k /boot/ | tail -1 |
+	while read mdef mblock mused mfree mdir
+	do
+		if test "${mfree}" -lt "380000"
+		then
+			rm -f /boot/kernel/*.symbols
+		fi
+	done
+	KERNCONF=`make -V KERNCONF`
+	if test "${KERNCONF}" = ""
+	then
+		KERNCONF="GENERIC"
+	fi
+	make "${target}" "${@}" >> "err-${HOST}-${target}-${KERNCONF}" 2>&1 || exit 1
+	echo "ok"
+	listfile="pxe-${HOST}.txt"
+	if test ! -f "${listfile}"
+	then
+		exit 0
+	fi
+	KERNCONF="GENERIC"
+	for D in `grep -v "^#" "${listfile}"`
+	do
+		echo "${D}"
+		E="${D##*/}"
+		make DESTDIR="${D}" KERNCONF="${KERNCONF}" "${target}" "${@}" >> "err-${HOST}-${target}-${E}-${KERNCONF}" 2>&1 || exit 1
+	done
+	echo "ok"
+	;;
+installworld)
+	make "${target}" "${@}" >> "err-${HOST}-${target}" 2>&1 || exit 1
+	echo "ok"
+	make delete-old RM_I="-f -v" "${@}"
+	( cd /etc/mail && make )
+	( cd /etc/mail && make install )
+	;;
+install)
+	sh .make.sh installkernel "${@}" || exit 1
+	sh .make.sh installworld "${@}" || exit 1
+	;;
+installjails)
+	case "${1}" in
+	*/*)
+		install_jail "${@}"
+		exit 0
+		;;
+	esac
+	listfile="jails-${HOST}.txt"
+	if test ! -f "${listfile}"
+	then
+		echo "${target}: File ${listfile} not found."
+		exit 1
+	fi
+	for D in `grep -v "^#" "${listfile}"`
+	do
+		echo "${D}"
+		install_jail "${D}" "${@}"
+	done
+	echo "ok"
+	;;
+installworlds)
+	sh .make.sh installworld "${@}" || exit 1
+	sh .make.sh installjails "${@}" || exit 1
+	;;
+installall)
+	sh .make.sh installkernel "${@}" || exit 1
+	sh .make.sh installworld "${@}" || exit 1
+	sh .make.sh installjails "${@}" || exit 1
+	;;
+delete-old-libs)
+	make delete-old RM_I="-f -v" "${@}"
+	make delete-old-libs "${@}"
+	if test -e "jails-${HOST}.libs"
+	then
+		listfile="jails-${HOST}.libs"
+	else
+		listfile="jails-${HOST}.txt"
+	fi
+	if test ! -f "${listfile}"
+	then
+		exit 0
+	fi
+	for D in `grep -v "^#" "${listfile}"`
+	do
+		echo "${D}"
+		make "DESTDIR=${D}" delete-old RM_I="-f -v" "${@}"
+		make "DESTDIR=${D}" delete-old-libs "${@}"
+	done
+	;;
+mergemaster)
+	mergemaster -U -F -i "${@}"
+	while test $# -gt 0
+	do
+		case "${1}" in
+		-D)
+			;;
+		*/*)
+			setup_mail "${@}"
+			;;
+		esac
+		shift
+	done
+	;;
+mergemasterjails)
+	listfile="jails-${HOST}.txt"
+	if test ! -f "${listfile}"
+	then
+		echo "${target}: File ${listfile} not found."
+		exit 1
+	fi
+	for D in `grep -v "^#" "${listfile}"`
+	do
+		echo "${D}"
+		sh .make.sh mergemaster -D "${D}" "${@}" || exit 1
+	done
+	echo "ok"
+	;;
+ver*)
+	egrep '^(REVISION|BRANCH)' sys/conf/newvers.sh
+	;;
+mergemasterall)
+	sh .make.sh mergemaster "${@}" || exit 1
+	sh .make.sh mergemasterjails "${@}" || exit 1
+	;;
+fetch)
+	fetch -o .make.sh.new http://people.freebsd.org/~dinoex/batch/make.sh
+	if diff -u .make.sh .make.sh.new
+	then
+		rm -f .make.sh.new
+	else
+		mv -i .make.sh.new .make.sh
+	fi
+	;;
+*)
+	echo "${0##*/} [ update | buildworld | buildkernel | build ]" >&2
+	echo "${0##*/} [ installkernel | installworld | install ]" >&2
+	echo "${0##*/} [ installjails | installworlds | installall ]" >&2
+	echo "${0##*/} [ mergemaster | delete-old-libs | fetch ]" >&2
+	exit 64
+	;;
+esac
+exit 0
+# eof
