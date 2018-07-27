@@ -1,6 +1,6 @@
 #!/bin/sh
 #	$Id$
-#	$FreeBSD: head/ports-mgmt/pkg_jail/files/pkg_update 460107 2018-01-27 11:20:47Z dinoex $
+#	$FreeBSD: head/ports-mgmt/pkg_jail/files/pkg_update 465528 2018-03-25 16:57:38Z dinoex $
 #
 # Copyright (c) 2001-2018 by Dirk Meyer. All rights reserved.
 #   Im Grund 4, 34317 Habichtswald, Germany
@@ -1046,6 +1046,8 @@ pkg_info_dependecies()
 clean_package_all() {
 	(
 	cd ${pkgall} || exit 69
+	rm -rf "${pkginfo_cache}"
+	quiet_mkdir "${pkginfo_cache}"
 	for i in *
 	do
 		# is the package already moved away?
@@ -1651,7 +1653,6 @@ then
 else
 	pkg="${pkg_prefix}/sbin/pkg"
 fi
-quiet_mkdir "${pkginfo_cache}"
 #
 target="${1}"
 case "${target}" in
