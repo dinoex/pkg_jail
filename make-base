@@ -232,20 +232,11 @@ mergemasterall)
 	sh .make.sh mergemaster "${@}" || exit 1
 	sh .make.sh mergemasterjails "${@}" || exit 1
 	;;
-fetch)
-	fetch -o .make.sh.new http://people.freebsd.org/~dinoex/batch/make.sh
-	if diff -u .make.sh .make.sh.new
-	then
-		rm -f .make.sh.new
-	else
-		mv -i .make.sh.new .make.sh
-	fi
-	;;
 *)
 	echo "${0##*/} [ update | buildworld | buildkernel | build ]" >&2
 	echo "${0##*/} [ installkernel | installworld | install ]" >&2
 	echo "${0##*/} [ installjails | installworlds | installall ]" >&2
-	echo "${0##*/} [ mergemaster | delete-old-libs | fetch ]" >&2
+	echo "${0##*/} [ mergemaster | mergemasterjails | delete-old-libs ]" >&2
 	exit 64
 	;;
 esac
