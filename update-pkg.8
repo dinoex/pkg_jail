@@ -1,0 +1,42 @@
+.\" $Id$
+.TH UPDATE-PKG 8 "July 2018" "FreeBSD" "User Manuals"
+.SH NAME
+update-pkg \- Easy update for packages with pkg
+.SH SYNOPSIS
+.TP
+.B update-pkg [/path/to/jail]
+.SH DESCRIPTION
+.TP procedure
+.B update-pkg
+is a script to update the installed packages with pkg on FreeBSD hosts and jails.
+.br
+.TP
+Step 1: pkg upgrade
+.TP
+Step 2: pkg autoremove
+.TP
+Step 3: pkg clean
+.TP
+Step 4: list packages that are missing in the package repository.
+.TP
+Step 5: list packages that are drepreacted.
+.TP
+Step 6: list packages that have an expiration date.
+.TP
+Step 7: list packages with known vulnerabilities.
+.SH "FILES"
+.TP
+.B /usr/local/etc/jails.txt
+Packages will be updated for each path listed.
+.TP
+.B /usr/src/jails-${HOSTNAME}-${ARCH}.txt
+Packages will be updated for each path listed if jails.txt is not found.
+.SH "BUGS"
+.P
+The name of the directory of the jail must be the name of the jail.
+.SH "SEE ALSO"
+.TP
+.B pkg(8)
+manipulate packages
+.SH "AUTHOR"
+Dirk Meyer, dinoex@FreeBSD.org

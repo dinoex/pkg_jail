@@ -1,0 +1,25 @@
+.\" $Id$
+.TH UPDATE-BASE 8 "July 2018" "FreeBSD" "User Manuals"
+.SH NAME
+update-base \- Easy install of kernel and world
+.SH SYNOPSIS
+.TP
+.B update-base
+.SH DESCRIPTION
+.B update-base
+is a script to install FreeBSD kernel and base from /usr/src and /usr/obj.
+.br
+The filesystems can be mounted on demand if present in /etc/fstab
+.SH "FILES"
+.TP
+.B /usr/src/jails-${HOSTNAME}-${ARCH}.txt
+Userland "world" will be installed for each path listed.
+.TP
+.B /usr/src/pxe-${HOSTNAME}-${ARCH}.txt
+Kernel will also be installed for each path listed.
+.SH "SEE ALSO"
+.TP
+.B make-base(8)
+Easy build of kernel and world
+.SH "AUTHOR"
+Dirk Meyer, dinoex@FreeBSD.org
