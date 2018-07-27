@@ -24,14 +24,14 @@ list=""
 case "${1}" in
 '')
 	cd /
-	ARCH=`make -V MACHINE_ARCH`
-	HOST=`hostname -s`"-${ARCH}"
-	listfile="/usr/local/etc/jails-${HOST}.txt"
+	listfile="/usr/local/etc/jails.txt"
 	if test -f "${listfile}"
 	then
 		list=`grep -v "^#" "${listfile}"`
 		break
 	fi
+	ARCH=`make -V MACHINE_ARCH`
+	HOST=`hostname -s`"-${ARCH}"
 	listfile="/usr/src/jails-${HOST}.txt"
 	if test -f "${listfile}"
 	then
