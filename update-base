@@ -2,8 +2,8 @@
 
 run_update() {
 	cd /usr/src
-	sh .make.sh installall "${@}"
-	sh .make.sh mergemasterall "${@}"
+	make-base installall "${@}"
+	make-base mergemasterall "${@}"
 	cd /
 }
 
