@@ -1,0 +1,95 @@
+.\" $Id$
+.TH MAKE-BASE 8 "July 2018" "FreeBSD" "User Manuals"
+.SH NAME
+make-base \- Easy build of kernel and world
+.SH SYNOPSIS
+.TP
+.B make-base [ update | buildworld | buildkernel | build ]
+.TP
+.B make-base [ installkernel | installworld | install ]
+.TP
+.B make-base [ installjails | installworlds | installall ]
+.TP
+.B make-base [ mergemaster | mergemasterjails | mergemasterall ]
+.TP
+.B make-base [ delete-old-libs | version ]
+.SH DESCRIPTION
+.B make-base
+is a script to build FreeBSD kernel and base from "/usr/src".
+.SH ARGUMENTS
+.TP
+.B update
+Starts "svnlite up" for the src tree.
+.TP
+.B buildworld
+Starts "buildworld" from /usr/src.
+.TP
+.B buildkernel
+Starts "buildkernel" for each kernel configuration.
+.TP
+.B build
+Starts "buildworld" and "buildkernel"
+.TP
+.B installkernel
+Starts "installkernel" for the kernel selected in "/etc/make.conf"
+and installs also kernel into dirs listed in "/usr/src/pxe-${HOSTNAME}-${ARCH}.txt".
+.TP
+.B installworld
+Starts "installworld" to install/update the base system.
+.TP
+.B install
+Starts "installkernel" and "installworld"
+.TP
+.B installjails
+Starts "installworld" for each dir listed in "/usr/src/jails-${HOSTNAME}-${ARCH}.txt".
+.TP
+.B installworlds
+Starts "installworld" and "installjails"
+.TP
+.B installall
+Starts "installkernel" and "installworlds"
+.TP
+.B installworlds
+Starts "installworld" and "installjails"
+.TP
+.B mergemaster
+Starts interactive "mergemaster" for the base system.
+.TP
+.B mergemaster -D /jail/name
+Starts interactive "mergemaster" for the given path.
+.TP
+.B mergemasterjails
+Starts interactive "mergemaster"
+for each dir listed in "/usr/src/jails-${HOSTNAME}-${ARCH}.txt".
+.TP
+.B mergemasterall
+Starts "mergemaster" and "mergemasterjails"
+.TP
+.B delete-old-libs
+Starts "delete-old" and "delete-old-libs" for base
+and each dir listed in "/usr/src/jails-${HOSTNAME}-${ARCH}.txt".
+.TP
+.B version
+Shows REVISION and BRANCH present in "/usr/src"
+.SH "FILES"
+.TP
+.B /usr/src/kernel-${HOSTNAME}-${ARCH}.txt
+Kernel configurations listed in this file will be build.
+.TP
+.B /usr/src/pxe-${HOSTNAME}-${ARCH}.txt
+Kernel will be installed for each path listed.
+.TP
+.B /usr/src/jails-${HOSTNAME}-${ARCH}.txt
+Userland "world" will be installed for each path listed.
+.SH "SEE ALSO"
+.TP
+.B update-base(8)
+Easy install of kernel and world
+.SH "AUTHOR"
+Dirk Meyer, dinoex@FreeBSD.org
+.SH "SEE ALSO"
+.TP
+.B update-base(8)
+Easy install of kernel and world
+.SH "AUTHOR"
+Dirk Meyer, dinoex@FreeBSD.org
