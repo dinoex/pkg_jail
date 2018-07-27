@@ -1,0 +1,34 @@
+#!/bin/sh
+
+cd /root
+
+service_enabled_filtered()
+{
+	service -e |
+	while read rc
+	do
+		if grep -q -x "${rc}" "/usr/local/etc/allservice.txt"
+		then
+			continue
+		fi
+		echo "${rc}"
+	done
+}
+
+service_enabled_filtered |
+while read rc
+do
+	${rc} status
+done > /tmp/allservice2.log
+
+run=`fgrep "is running" /tmp/allservice2.log | wc -l`
+fail=`fgrep -v "is running" /tmp/allservice2.log | wc -l`
+
+if test ${fail} -gt 0
+then
+	fgrep -v "is running" /tmp/allservice2.log
+else
+	echo "OK"
+fi
+exit 0
+# eof

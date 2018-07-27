@@ -1,0 +1,49 @@
+#!/bin/sh
+
+cd /root
+
+service_enabled_filtered()
+{
+	service -e |
+	while read rc
+	do
+		if grep -q -x "${rc}" "/usr/local/etc/allservice.txt"
+		then
+			continue
+		fi
+		if test "${filter}" != ""
+		then
+			case "${rc}" in
+			${filter})
+				;;
+			*)
+				continue
+				;;
+			esac
+		fi
+		echo "${rc}"
+	done
+}
+
+filter=""
+case "${1}" in
+local)
+	shift
+	filter="/usr/local/etc/*"
+	;;
+esac
+
+if test $# -lt 1
+then
+	service_enabled_filtered
+	exit 0
+fi
+
+
+service_enabled_filtered |
+while read rc
+do
+	${rc} "${@}"
+done
+exit 0
+# eof

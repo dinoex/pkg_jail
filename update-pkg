@@ -1,0 +1,52 @@
+#!/bin/sh
+
+pkg upgrade
+pkg autoremove
+pkg clean -y
+pkg version -qo -Rl '?'
+pkg annotate -a -S deprecated
+pkg annotate -a -S expiration_date
+pkg audit
+
+jail_update() {
+	jail="${jail##*/}"
+	printf "\n%s:\n" "${jail}"
+	jexec "${jail}" pkg upgrade
+	jexec "${jail}" pkg autoremove
+	jexec "${jail}" pkg clean -a -y
+	jexec "${jail}" pkg version -qo -Rl '?'
+	jexec "${jail}" pkg annotate -a -S deprecated
+	jexec "${jail}" pkg annotate -a -S expiration_date
+	jexec "${jail}" pkg audit
+}
+
+list=""
+case "${1}" in
+'')
+	cd /
+	ARCH=`make -V MACHINE_ARCH`
+	HOST=`hostname -s`"-${ARCH}"
+	listfile="/usr/local/etc/jails-${HOST}.txt"
+	if test -f "${listfile}"
+	then
+		list=`grep -v "^#" "${listfile}"`
+		break
+	fi
+	listfile="/usr/src/jails-${HOST}.txt"
+	if test -f "${listfile}"
+	then
+		list=`grep -v "^#" "${listfile}"`
+		break
+	fi
+	;;
+*)
+	list="${@}"
+	;;
+esac
+
+for jail in ${list}
+do
+	jail_update "${jail}"
+done
+
+# eof

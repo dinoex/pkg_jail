@@ -1,0 +1,23 @@
+#!/bin/sh
+
+run_update() {
+	cd /usr/src
+	sh .make.sh installall "${@}"
+	sh .make.sh mergemasterall "${@}"
+	cd /
+}
+
+set -x
+set -e
+if grep -q '^/usr/src[[:blank:]]' /etc/fstab
+then
+	cd /
+	mount /usr/src
+	mount /usr/obj
+	run_update "${@}"
+	umount /usr/obj
+	umount /usr/src
+else
+	run_update "${@}"
+fi
+# eof
