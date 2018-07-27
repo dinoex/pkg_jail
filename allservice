@@ -7,9 +7,12 @@ service_enabled_filtered()
 	service -e |
 	while read rc
 	do
-		if grep -q -x "${rc}" "/usr/local/etc/allservice.txt"
+		if test -f "/usr/local/etc/allservice.txt"
 		then
-			continue
+			if grep -q -x "${rc}" "/usr/local/etc/allservice.txt"
+			then
+				continue
+			fi
 		fi
 		if test "${filter}" != ""
 		then
