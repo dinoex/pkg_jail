@@ -73,7 +73,7 @@ update)
 	then
 		svn up | tee "err-${HOST}-${target}" 2>&1 || exit 1
 	else
-		sbuildworldvnlite up | tee "err-${HOST}-${target}" 2>&1 || exit 1
+		svnlite up | tee "err-${HOST}-${target}" 2>&1 || exit 1
 	fi
 	echo "ok"
 	;;
@@ -104,8 +104,8 @@ buildkernel)
 	echo "ok"
 	;;
 build)
-	sh .make.sh buildworld "${@}" || exit 1
-	sh .make.sh buildkernel "${@}" || exit 1
+	${0} buildworld "${@}" || exit 1
+	${0} buildkernel "${@}" || exit 1
 	;;
 installkernel)
 	df -k /boot/ | tail -1 |
@@ -145,8 +145,8 @@ installworld)
 	( cd /etc/mail && make install )
 	;;
 install)
-	sh .make.sh installkernel "${@}" || exit 1
-	sh .make.sh installworld "${@}" || exit 1
+	${0} installkernel "${@}" || exit 1
+	${0} installworld "${@}" || exit 1
 	;;
 installjails)
 	case "${1}" in
@@ -159,7 +159,7 @@ installjails)
 	if test ! -f "${listfile}"
 	then
 		echo "${target}: File ${listfile} not found."
-		exit 1
+		exit 0
 	fi
 	for D in `grep -v "^#" "${listfile}"`
 	do
@@ -169,13 +169,13 @@ installjails)
 	echo "ok"
 	;;
 installworlds)
-	sh .make.sh installworld "${@}" || exit 1
-	sh .make.sh installjails "${@}" || exit 1
+	${0} installworld "${@}" || exit 1
+	${0} installjails "${@}" || exit 1
 	;;
 installall)
-	sh .make.sh installkernel "${@}" || exit 1
-	sh .make.sh installworld "${@}" || exit 1
-	sh .make.sh installjails "${@}" || exit 1
+	${0} installkernel "${@}" || exit 1
+	${0} installworld "${@}" || exit 1
+	${0} installjails "${@}" || exit 1
 	;;
 mergemaster)
 	mergemaster -U -F -i "${@}"
@@ -196,18 +196,18 @@ mergemasterjails)
 	if test ! -f "${listfile}"
 	then
 		echo "${target}: File ${listfile} not found."
-		exit 1
+		exit 0
 	fi
 	for D in `grep -v "^#" "${listfile}"`
 	do
 		echo "${D}"
-		sh .make.sh mergemaster -D "${D}" "${@}" || exit 1
+		${0} mergemaster -D "${D}" "${@}" || exit 1
 	done
 	echo "ok"
 	;;
 mergemasterall)
-	sh .make.sh mergemaster "${@}" || exit 1
-	sh .make.sh mergemasterjails "${@}" || exit 1
+	${0} mergemaster "${@}" || exit 1
+	${0} mergemasterjails "${@}" || exit 1
 	;;
 delete-old-libs)
 	make delete-old RM_I="-f -v" "${@}"
