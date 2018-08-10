@@ -8,23 +8,24 @@ run_update() {
 }
 
 set -x
-set -e
 if grep -q '[[:blank:]]/usr/src[[:blank:]]' /etc/fstab
 then
 	cd /
 	mounted=`mount | grep ' /usr/src '`
 	if test "${mounted}" = ""
 	then
+		set -e
 		mount /usr/src
 		mount /usr/obj
 		run_update "${@}"
 		umount /usr/obj
 		umount /usr/src
 	else
-		
+		set -e
 		run_update "${@}"
 	fi
 else
+	set -e
 	run_update "${@}"
 fi
 # eof
