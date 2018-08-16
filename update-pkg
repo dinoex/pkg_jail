@@ -9,15 +9,42 @@ pkg annotate -a -S expiration_date
 pkg audit
 
 jail_update() {
-	jail="${jail##*/}"
-	printf "\n%s:\n" "${jail}"
-	jexec "${jail}" pkg upgrade
-	jexec "${jail}" pkg autoremove
-	jexec "${jail}" pkg clean -a -y
-	jexec "${jail}" pkg version -qo -Rl '?'
-	jexec "${jail}" pkg annotate -a -S deprecated
-	jexec "${jail}" pkg annotate -a -S expiration_date
-	jexec "${jail}" pkg audit
+	jail="${1}"
+	name="${jail##*/}"
+	printf "\n%s:\n" "${name}"
+	jexec "${name}" pkg upgrade
+	jexec "${name}" pkg autoremove
+	jexec "${name}" pkg clean -a -y
+	jexec "${name}" pkg version -qo -Rl '?'
+	jexec "${name}" pkg annotate -a -S deprecated
+	jexec "${name}" pkg annotate -a -S expiration_date
+	jexec "${name}" pkg audit
+}
+
+chroot_update() {
+	jail="${1}"
+	name="${jail##*/}"
+	printf "\n%s:\n" "${name}"
+	chroot "${jail}" pkg upgrade
+	chroot "${jail}" pkg autoremove
+	chroot "${jail}" pkg clean -a -y
+	chroot "${jail}" pkg version -qo -Rl '?'
+	chroot "${jail}" pkg annotate -a -S deprecated
+	chroot "${jail}" pkg annotate -a -S expiration_date
+	chroot "${jail}" pkg audit
+}
+
+find_jail() {
+	name=`jls -n | fgrep " path=${jail} " | tr ' ' '\n' | grep "^name="`
+	name="${name#name=}"
+	case "${name}" in
+	'')
+		chroot_update "${jail}"
+		;;
+	*)
+		jail_update "${name}"
+		;;
+	esac
 }
 
 list=""
@@ -46,7 +73,7 @@ esac
 
 for jail in ${list}
 do
-	jail_update "${jail}"
+	find_jail "${jail}"
 done
 
 # eof
