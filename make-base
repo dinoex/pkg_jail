@@ -229,6 +229,9 @@ delete-old-libs)
 		make "DESTDIR=${D}" delete-old-libs "${@}"
 	done
 	;;
+diff)
+	diff -q . HISTORY/ | grep err- | grep -v differ
+	;;
 ver*)
 	egrep '^(REVISION|BRANCH)' sys/conf/newvers.sh
 	;;
