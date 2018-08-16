@@ -11,7 +11,7 @@ set -x
 if grep -q '[[:blank:]]/usr/src[[:blank:]]' /etc/fstab
 then
 	cd /
-	mounted=`mount | grep ' /usr/src '`
+	mounted=`mount | grep '^[^#].* /usr/src '`
 	if test "${mounted}" = ""
 	then
 		set -e
