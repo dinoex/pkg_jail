@@ -296,17 +296,17 @@ dependency_is_good() {
 		echo "Directory bad: ${fulldir}" >> ${tmpupdated}
 		return 1
 	fi
-	pkgname=`cd ${fulldir} && make -V PKGNAME`
+	pkgname=`cd ${fulldir} && make -V PKGNAME ${2}`
 	if run_pkg_installed
 	then
 		return 2
 	fi
-	pkgfile=`cd ${fulldir} && make -V PKGFILE`
+	pkgfile=`cd ${fulldir} && make -V PKGFILE ${2}`
 	if test -e ${pkgfile}
 	then
 		return 0
 	fi
-	noinstall=`cd "${fulldir}" && make -V NO_INSTALL`
+	noinstall=`cd "${fulldir}" && make -V NO_INSTALL ${2}`
 	case "${noinstall}" in
 	yes|YES)
 		return 2
@@ -386,10 +386,11 @@ port_uptodate() {
 	do
 		fulldir="${depdir_flavors%@*}"
 		flavor=`get_flavor_dir "${depdir_flavors}"`
+		mflavor=`get_mflavor "${flavor}"`
 		dir=""
 		pkgname=""
 		pkgfile=""
-		dependency_is_good "${1}"
+		dependency_is_good "${1}" ${mflavor}
 		err="${?}"
 		case "${err}" in
 		0) # exist
@@ -508,27 +509,27 @@ port_uptodate() {
 		case "${1}" in
 		make*)
 			( cd "${base}" && env ${pkg_env} ${local_env} make package ${mflavor} </dev/null >> "${logdir}/err,${log}" 2>&1 )
-			pkgfile=`cd "${base}" && make -V PKGFILE`
+			pkgfile=`cd "${base}" && make -V PKGFILE ${mflavor}`
 			if test -e "${pkgfile}"
 			then
 				if test -f "${logdir}/build,${log}"
 				then
 					mv -f "${logdir}/build,${log}" "${logdir}/last,${log}"
 				fi
-				( cd ${base} && env ${pkg_env} make stage-qa check-orphans check-sanity </dev/null >> "${logdir}/err,${log}" 2>&1 )
+				( cd ${base} && env ${pkg_env} make stage-qa check-orphans check-sanity ${mflavor} </dev/null >> "${logdir}/err,${log}" 2>&1 )
 				mv -f "${logdir}/err,${log}" "${logdir}/build,${log}"
 				( cd ${base} && env ${pkg_env} make clean NOCLEANDEPENDS=yes ${mflavor} )
 				if run_pkg_installed
 				then
 					return 0
 				fi
-				noinstall=`cd "${base}" && make -V NO_INSTALL`
+				noinstall=`cd "${base}" && make -V NO_INSTALL ${mflavor}`
 				case "${noinstall}" in
 				yes|YES)
 					return 0
 					;;
 				esac
-				nostage=`cd "${base}" && make -V NO_STAGE`
+				nostage=`cd "${base}" && make -V NO_STAGE ${mflavor}`
 				case "${nostage}" in
 				yes|YES)
 					echo "=====================================" >&2
@@ -540,7 +541,7 @@ port_uptodate() {
 					;;
 				*)
 					# install staged package
-					pkgfile=`cd "${base}" && make -V PKGFILE`
+					pkgfile=`cd "${base}" && make -V PKGFILE ${mflavor}`
 					if run_pkg_add
 					then
 						return 0
@@ -553,7 +554,7 @@ port_uptodate() {
 					return 2
 				esac
 			fi
-			pkgfile=`cd "${base}" && make -V PKGFILE`
+			pkgfile=`cd "${base}" && make -V PKGFILE ${mflavor}`
 			if test -e "${pkgfile}"
 			then
 				if test -f "${logdir}/build,${log}"
@@ -561,7 +562,7 @@ port_uptodate() {
 					mv -f "${logdir}/build,${log}" "${logdir}/last,${log}"
 				fi
 				mv -f "${logdir}/err,${log}" "${logdir}/build,${log}"
-				( cd ${base} && env ${pkg_env} make clean NOCLEANDEPENDS=yes )
+				( cd ${base} && env ${pkg_env} make clean NOCLEANDEPENDS=yes ${mflavor} )
 				return 0
 			else
 				echo "=====================================" >&2
@@ -639,7 +640,7 @@ make_packages_in_dir() {
 				return
 			fi
 
-			env ${pkg_env} make deinstall
+			env ${pkg_env} make deinstall ${main_flavor}
 			run_pkg_delete_all
 			if test -f ${localdir}/data/badfiles
 			then
@@ -1506,29 +1507,6 @@ next_target() {
 	exec /bin/sh "${0}" "${@}"
 }
 #
-# make sure /etc/make.conf is set up
-validate_make_conf() {
-
-	use_packges=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V USE_PACKAGE_DEPENDS`
-	if test "${use_packges}" = ""
-	then
-		echo "### Please add to your /etc/make.conf ####" >&2
-		echo "USE_PACKAGE_DEPENDS=yes" >&2
-		exit 65
-	fi
-
-	depends_target=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V DEPENDS_TARGET`
-	case "${depends_target}" in
-	'package install')
-		;;
-	*)
-		echo "### Please add to your /etc/make.conf ####" >&2
-		echo "DEPENDS_TARGET=package install" >&2
-		exit 65
-		;;
-	esac
-}
-#
 # update pkg tools
 update_pkg() {
 	if test -f "${pkg}"
@@ -1625,6 +1603,12 @@ then
 	usage
 fi
 #
+USE_PACKAGE_DEPENDS="yes"
+DEPENDS_SHOW_FLAVOR="yes"
+DEPENDS_TARGET="package install"
+export USE_PACKAGE_DEPENDS
+export DEPENDS_SHOW_FLAVOR
+export DEPENDS_TARGET
 hostnames=`hostname -s`
 localdir="${PKG_UPDATE_DIR:-/usr/ports/local/update}"
 logdir="${PKG_UPDATE_LOGDIR:-${localdir}/log-${hostnames}}"
@@ -1639,7 +1623,6 @@ inrequired="/tmp/inrequired-seen"
 pkginfo_cache="/var/tmp/pkginfo_cache"
 pkg_prefix="/usr/pkgng"
 pkg_env="PKG_DEPENDS= PKG_PREFIX=${pkg_prefix} PKG_BIN=${pkg_prefix}/sbin/pkg-static"
-pkg_env="${pkg_env} DEPENDS_SHOW_FLAVOR="
 #
 #	get all path information from /etc/make.conf
 nowarn="COMMENT=0 CATEGORIES=0 PORTVERSION=0"
@@ -1670,7 +1653,6 @@ repo)
 make-packages)
 	shift
 	check_buildjail
-	validate_make_conf
 	check_update_pkg
 	parse_default "${#}"
 	quiet_mkdir "${localdir}/data" "${logdir}"
@@ -2003,7 +1985,7 @@ check-installed-ports)
 	run_pkg_info_origin_all |
 	sort -u > "${tmp2}"
 	obsolete=`comm -23 "${tmp1}" "${tmp2}"`
-	if test "${obsolete}"
+	if test "${obsolete}" != ""
 	then
 		echo "#    not installed, but listed:"
 		echo "${obsolete}" |
@@ -2019,7 +2001,7 @@ check-installed-ports)
 		echo ""
 	fi
 	obsolete=`comm -13 "${tmp1}" "${tmp2}"`
-	if test "${obsolete}"
+	if test "${obsolete}" != ""
 	then
 		echo "#    installed, but not listed:"
 		echo "${obsolete}" |
