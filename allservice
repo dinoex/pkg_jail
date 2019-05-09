@@ -1,5 +1,6 @@
 #!/bin/sh
 
+prefix="/usr/local"
 cd /root
 
 service_enabled_filtered()
@@ -7,9 +8,9 @@ service_enabled_filtered()
 	service -e |
 	while read rc
 	do
-		if test -f "/usr/local/etc/allservice.txt"
+		if test -f "${prefix}/etc/allservice.txt"
 		then
-			if grep -q -x "${rc}" "/usr/local/etc/allservice.txt"
+			if grep -q -x "${rc}" "${prefix}/etc/allservice.txt"
 			then
 				continue
 			fi
@@ -28,11 +29,42 @@ service_enabled_filtered()
 	done
 }
 
+generate_allservice() {
+	if test ! -f "${prefix}/etc/allservice.txt"
+	then
+		touch "${prefix}/etc/allservice.txt"
+	fi
+	service -e |
+	while read rc
+	do
+		if test ! -e "${rc}"
+		then
+			continue
+		fi
+		usage=`"${rc}" 2>&1`
+		case "${usage}" in
+		*status*)
+			continue
+			;;
+		esac
+		if grep -q -x "${rc}" "${prefix}/etc/allservice.txt"
+		then
+			continue
+		fi
+		echo "${rc}" >> "${prefix}/etc/allservice.txt"
+		echo "ignored: ${rc}"
+	done
+}
+
 filter=""
 case "${1}" in
 local)
 	shift
-	filter="/usr/local/etc/*"
+	filter="${prefix}/etc/*"
+	;;
+gen)
+	generate_allservice
+	exit 0
 	;;
 esac
 
