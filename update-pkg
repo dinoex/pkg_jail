@@ -25,6 +25,10 @@ chroot_update() {
 	jail="${1}"
 	name="${jail##*/}"
 	printf "\n%s:\n" "${name}"
+	if test ! -f "${jail}/var/db/pkg/local.sqlite"
+	then
+		return
+	fi
 	chroot "${jail}" pkg upgrade
 	chroot "${jail}" pkg autoremove
 	chroot "${jail}" pkg clean -a -y
