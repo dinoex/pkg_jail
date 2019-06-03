@@ -1,7 +1,6 @@
 #!/bin/sh
 
-pkg upgrade -y -q pkg
-pkg upgrade -q
+pkg upgrade
 pkg autoremove -q
 pkg clean -qay
 pkg version -qo -Rl '?'
@@ -13,8 +12,7 @@ jail_update() {
 	jail="${1}"
 	name="${jail##*/}"
 	printf "\n%s:\n" "${name}"
-	jexec "${name}" pkg upgrade -y -q pkg
-	jexec "${name}" pkg upgrade -q
+	jexec "${name}" pkg upgrade
 	jexec "${name}" pkg autoremove -q
 	jexec "${name}" pkg clean -qay
 	jexec "${name}" pkg version -qo -Rl '?'
@@ -27,8 +25,7 @@ chroot_update() {
 	jail="${1}"
 	name="${jail##*/}"
 	printf "\n%s:\n" "${name}"
-	chroot "${jail}" pkg upgrade -y -q pkg
-	chroot "${jail}" pkg upgrade -q
+	chroot "${jail}" pkg upgrade
 	chroot "${jail}" pkg autoremove -q
 	chroot "${jail}" pkg clean -qay
 	chroot "${jail}" pkg version -qo -Rl '?'
