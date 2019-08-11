@@ -50,21 +50,22 @@ find_jail() {
 list=""
 case "${1}" in
 '')
-	cd /
-	listfile="/usr/local/etc/jails.txt"
-	if test -f "${listfile}"
-	then
-		list=`grep -v "^#" "${listfile}"`
-		break
-	fi
 	ARCH=`make -V MACHINE_ARCH`
 	HOST=`hostname -s`"-${ARCH}"
-	listfile="/usr/src/jails-${HOST}.txt"
-	if test -f "${listfile}"
-	then
+	list=""
+	for listfile in \
+		"/usr/local/etc/jails.pkg.txt" \
+		"/usr/local/etc/jails.txt" \
+		"/usr/src/jails-${HOST}.txt" \
+		"/usr/src/jails-${HOST}.pkg.txt"
+	do
+		if test ! -f "${listfile}"
+		then
+			continue
+		fi
 		list=`grep -v "^#" "${listfile}"`
 		break
-	fi
+	done
 	;;
 *)
 	list="${@}"
