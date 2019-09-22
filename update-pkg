@@ -56,8 +56,8 @@ case "${1}" in
 	for listfile in \
 		"/usr/local/etc/jails.pkg.txt" \
 		"/usr/local/etc/jails.txt" \
-		"/usr/src/jails-${HOST}.txt" \
-		"/usr/src/jails-${HOST}.pkg.txt"
+		"/usr/src/jails-${HOST}.pkg.txt" \
+		"/usr/src/jails-${HOST}.txt"
 	do
 		if test ! -f "${listfile}"
 		then
