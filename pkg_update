@@ -1171,13 +1171,13 @@ clean_package_openssl() {
 		then
 			continue
 		fi
-		openssl=`cd "${depdir}" && make -V USE_OPENSSL ${mflavor}`
-		if test "${openssl}" =  ""
-		then
-			continue
-		fi
-		echo "${i}: depends on openssl!"
-		move_away ${i}
+		openssl=`cd "${depdir}" && make -V USES ${mflavor}`
+		case "${openssl}" in
+		*ssl*)
+			echo "${i}: depends on openssl!"
+			move_away ${i}
+			;;
+		esac
 	done
 	)
 }
@@ -1634,7 +1634,7 @@ if test ! -f "${defaultdata}"
 then
 	pkg="pkg"
 else
-	pkg="${pkg_prefix}/sbin/pkg"
+	pkg="${pkg_prefix}/sbin/pkg-static"
 fi
 #
 target="${1}"
@@ -1646,6 +1646,8 @@ update-pkg)
 repo)
 	shift
 	mv "${packages}/Old" "${packages}-Old"
+	# cleanup leftover repo files
+	rm -fv "${packages}/packagesite.yaml" "${packages}/digests"
 	${pkg} repo "${packages}"
 	mv "${packages}-Old" "${packages}/Old"
 	next_target "${@}"
