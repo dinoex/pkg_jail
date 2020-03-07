@@ -192,6 +192,12 @@ mergemaster)
 	done
 	;;
 mergemasterjails)
+	case "${1}" in
+	*/*)
+		${0} mergemaster -D "${@}" || exit 1
+		exit 0
+		;;
+	esac
 	listfile="jails-${HOST}.txt"
 	if test ! -f "${listfile}"
 	then
