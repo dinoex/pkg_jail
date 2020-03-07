@@ -198,8 +198,7 @@ run_pkg_installed() {
 }
 
 run_pkg_match() {
-	pkgname=`run_pkg_info_installed "${origin}"`
-	required_by=`pkg info --required-by "${pkgname}" | wc -l`
+	required_by=`pkg info --required-by "${origin%@*}" | wc -l`
 	if test "${required_by}" -gt 1
 	then
 #		echo "${origin} (dependency)"
@@ -262,11 +261,23 @@ run_pkg_info_origin_file() {
 }
 
 run_pkg_info_origin_name() {
-	${pkg} info -q -o "${1}"
+	pflavor=`${pkg} info -q --annotations "${1}" | grep "^flavor"`
+	pflavor="${pflavor##flavor*: }"
+	porigin=`${pkg} info -q -o "${1}"`
+	if test "${pflavor}" = ""
+	then
+		echo "${porigin}"
+	else
+		echo "${porigin}@${pflavor}"
+	fi
 }
 
 run_pkg_info_origin_all() {
-	${pkg} query '%o'
+	${pkg} info -a -q |
+	while read name
+	do
+	run_pkg_info_origin_name "${name}"
+	done
 }
 
 run_pkg_info_dependecies() {
@@ -1993,7 +2004,8 @@ check-installed-ports)
 		echo "${obsolete}" |
 		while read origin
 		do
-			if test ! -d "${portsdir}/${origin}"
+			origindir="${portsdir}/${origin%@*}"
+			if test ! -d "${origindir}"
 			then
 				echo "${origin} (no origin)"
 				continue
@@ -2009,12 +2021,15 @@ check-installed-ports)
 		echo "${obsolete}" |
 		while read origin
 		do
-			if test ! -d "${portsdir}/${origin}"
+			origindir="${portsdir}/${origin%@*}"
+			if test ! -d "${origindir}"
 			then
 				echo "${origin} (no origin)"
 				continue
 			fi
-			pkgname=`cd "${portsdir}/${origin}" && make -V PKGNAME 2>/dev/null`
+			flavor=`get_flavor_dir "${origin}"`
+			mflavor=`get_mflavor "${flavor}"`
+			pkgname=`cd "${origindir}" && make -V PKGNAME ${mflavor} 2>/dev/null`
 			run_pkg_match
 		done
 		echo ""
