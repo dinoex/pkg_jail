@@ -272,6 +272,10 @@ run_pkg_info_origin_name() {
 	fi
 }
 
+run_pkg_info_options() {
+        ${pkg} query -F "${1}" "%Ok=%Ov" | sort
+}
+
 run_pkg_info_origin_all() {
 	${pkg} info -a -q |
 	while read name
@@ -1053,6 +1057,35 @@ pkg_info_dependecies()
 }
 
 #
+# make new package depends list for port
+port_dependencies() {
+	cd "${depdir}" && env ${pkg_env} make run-depends-list ${mflavor} |
+	sed -f "${depends}" |
+	while read dorigin_flavors
+	do
+		dorigin="${dorigin_flavors%@*}"
+		dflavor=`get_flavor_dir "${dorigin_flavors}"`
+		mflavor=`get_mflavor "${dflavor}"`
+		cd "${dorigin}" && env ${pkg_env} make -V PKGNAME ${mflavor}
+	done |
+	sort
+}
+
+#
+# make new package option list
+port_options() {
+	cd "${depdir}" && (
+		env ${pkg_env} make -V SELECTED_OPTIONS ${mflavor} |
+		tr ' ' '\n' |
+		sed -e 's|$|=on|'
+		env ${pkg_env} make -V DESELECTED_OPTIONS ${mflavor} |
+		tr ' ' '\n' |
+		sed -e 's|$|=off|'
+	) |
+	sort
+}
+
+#
 # check all packages in ${PACKAGES}/All/
 # Usage: clean_package_all
 clean_package_all() {
@@ -1103,11 +1136,44 @@ clean_package_all() {
 			continue
 		fi
 		ptarget="${pnew}"
+		# check that the dependencies are still the same
+		sfile="${pkginfo_cache}/${ptarget##*/}"
+		dfile="${pkginfo_cache}/${ptarget##*/}.dlist"
+		slist=`run_pkg_info_dependecies "${ptarget}"`
+		dlist=`port_dependencies`
+		if test "${slist}" != "${dlist}"
+		then
+			echo "${i}: dependecies changed"
+			echo "${slist}" > "${sfile}"
+			echo "${dlist}" > "${dfile}"
+			diff -u "${sfile}" "${dfile}" | grep '^[+-][^+-]'
+			rm -f "${sfile}" "${dfile}"
+			move_away ${i}
+			continue
+		fi
+		#
+		# check that options are still the same
+		soptions=`run_pkg_info_options "${ptarget}"`
+		doptions=`port_options`
+		if test "${slist}" != "${dlist}"
+		then
+			echo "${i}: options changed"
+			echo "${soptions}" > "${sfile}"
+			echo "${doptions}" > "${dfile}"
+			diff -u "${sfile}" "${dfile}" | grep '^[+-][^+-]'
+			rm -f "${sfile}" "${dfile}"
+			move_away ${i}
+			continue
+		fi
 		#
 		# check each depended package
-		pkg_info_dependecies "${ptarget}" |
+		echo "${slist}" |
 		while read dep
 		do
+			if test "${dep}" == ""
+			then
+				continue
+			fi
 			pmade="${dep}${ext}"
 			if test -f "${pkgall}/${pmade}"
 			then
