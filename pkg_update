@@ -1018,7 +1018,7 @@ move_dependent_away() {
 		move_away "${file}"
 		if test -f "${incache}"
 		then
-			# obsolte cache file
+			# obsolete cache file
 			rm -f "${incache}"
 		fi
 	done
@@ -1035,6 +1035,7 @@ move_away() {
 		saved="${pkginfo_cache}/${file}"
 		if test -f "${saved}"
 		then
+			# obsolete cache file
 			rm -f "${saved}"
 		fi
 		move_dependent_away "${file%${ext}}"
@@ -1059,14 +1060,14 @@ pkg_info_dependecies()
 #
 # make new package depends list for port
 port_dependencies() {
-	cd "${depdir}" && env ${pkg_env} make run-depends-list ${mflavor} |
+	cd "${depdir}" && env ${pkg_env} make ${1} ${mflavor} |
 	sed -f "${depends}" |
 	while read dorigin_flavors
 	do
 		dorigin="${dorigin_flavors%@*}"
 		dflavor=`get_flavor_dir "${dorigin_flavors}"`
 		mflavor=`get_mflavor "${dflavor}"`
-		cd "${dorigin}" && env ${pkg_env} make -V PKGNAME ${mflavor}
+		cd "${dorigin}" && env ${pkg_env} make -V ${2} ${mflavor}
 	done |
 	sort
 }
@@ -1082,7 +1083,19 @@ port_options() {
 		tr ' ' '\n' |
 		sed -e 's|$|=off|'
 	) |
+	grep -v '^=' |
 	sort
+}
+
+#
+# show diffs
+show_diffs() {
+	sfile="${pkginfo_cache}/${ptarget##*/}.slist"
+	dfile="${pkginfo_cache}/${ptarget##*/}.dlist"
+	echo "${1}" > "${sfile}"
+	echo "${2}" > "${dfile}"
+	diff -u "${sfile}" "${dfile}" | grep '^[+-][^+-]'
+	rm -f "${sfile}" "${dfile}"
 }
 
 #
@@ -1124,49 +1137,74 @@ clean_package_all() {
 			continue
 		fi
 		pnew=`cd "${depdir}" && make -V PKGFILE ${mflavor}`
-		if test ! "${pnew}" = "${pkgall}/${i}"
+		if test "${pnew}" != "${pkgall}/${i}"
 		then
-			if test ! "${pnew}" = ""
+			if test "${pnew}" = ""
 			then
-				echo "${i}: is obsolete => ${pnew}"
+				echo "${i}: missing or defunt Makefile in ${depdir}"
 			else
-				echo "${i}: missing or defunt Makefile in dir => ${depdir}"
+				echo "${i}: is obsolete => ${pnew##*/}"
 			fi
 			move_away ${i}
 			continue
 		fi
 		ptarget="${pnew}"
-		# check that the dependencies are still the same
-		sfile="${pkginfo_cache}/${ptarget##*/}"
-		dfile="${pkginfo_cache}/${ptarget##*/}.dlist"
-		slist=`run_pkg_info_dependecies "${ptarget}"`
-		dlist=`port_dependencies`
-		if test "${slist}" != "${dlist}"
-		then
-			echo "${i}: dependecies changed"
-			echo "${slist}" > "${sfile}"
-			echo "${dlist}" > "${dfile}"
-			diff -u "${sfile}" "${dfile}" | grep '^[+-][^+-]'
-			rm -f "${sfile}" "${dfile}"
-			move_away ${i}
-			continue
-		fi
-		#
+		# 
 		# check that options are still the same
 		soptions=`run_pkg_info_options "${ptarget}"`
 		doptions=`port_options`
-		if test "${slist}" != "${dlist}"
+		if test "${soptions}" != "${doptions}"
 		then
 			echo "${i}: options changed"
-			echo "${soptions}" > "${sfile}"
-			echo "${doptions}" > "${dfile}"
-			diff -u "${sfile}" "${dfile}" | grep '^[+-][^+-]'
-			rm -f "${sfile}" "${dfile}"
+			show_diffs "${soptions}" "${doptions}"
 			move_away ${i}
 			continue
 		fi
+		# 
+		# check that the dependencies are still the same
+		slist=`run_pkg_info_dependecies "${ptarget}"`
+		dlist=`port_dependencies "run-depends-list" PKGNAME`
+		if test "${slist}" != "${dlist}"
+		then
+			echo "${i}: dependecies changed"
+			show_diffs "${slist}" "${dlist}"
+			move_away ${i}
+			continue
+		fi
+		# 
+		# check the build dependencies
+		sfile="${pkginfo_cache}/${ptarget##*/}"
+		echo "${slist}" > "${sfile}"
+		blist=`port_dependencies "build-depends-list" PKGFILE`
+		echo "${blist}" |
+		while read pnew
+		do
+			if test "${pnew}" == ""
+			then
+				continue
+			fi
+			pmade="${pnew##*/}"
+			if test ! -f "${pnew}"
+			then
+				echo "${i}: build-depend package ${pmade} missing!"
+				move_away ${i}
+				break
+			fi
+			if test "${pnew}" -nt "${ptarget}"
+			then
+				echo "${i}: build-depend package ${pmade} newer"
+				move_away ${i}
+				break
+			fi
+			echo "${pmade%${ext}}" > "${sfile}"
+		done
+		# is the package already moved away?
+		if test ! -f "${i}"
+		then
+			continue
+		fi
 		#
-		# check each depended package
+		# check each run depended package
 		echo "${slist}" |
 		while read dep
 		do
@@ -1175,54 +1213,46 @@ clean_package_all() {
 				continue
 			fi
 			pmade="${dep}${ext}"
-			if test -f "${pkgall}/${pmade}"
+			if test ! -f "${pkgall}/${pmade}"
 			then
-				#
-				# find matching port directory (origin)
-				origin_flavors=`run_pkg_info_origin_file "${pmade}"`
-				origin="${origin_flavors%@*}"
-				flavor=`get_flavor_dir "${origin_flavors}"`
-				mflavor=`get_mflavor "${flavor}"`
-				if test "${origin}" = ""
-				then
-					echo "${i}: missing origin"
-					move_away ${i}
-					break
-				fi
-				depdir="${portsdir}/${origin}"
-				if test ! -d "${depdir}"
-				then
-					echo "${i}: dependency ${pmade} missing ports dir => ${depdir}"
-					move_away ${i}
-					break
-				fi
-				pnew=`cd "${depdir}" && make -V PKGFILE ${mflavor}`
-				if test "${pnew}" = "${pkgall}/${pmade}"
-				then
-					if test "${pmade}" -nt "${ptarget}"
-					then
-						echo "${i}: dependend package ${pmade} newer"
-						move_away ${i}
-						break
-					fi
-					#
-					# up to date
-					continue
-				fi
-				echo "${i}: dependency ${pmade} is obsolete => ${pnew}"
-				move_away ${i}
-				break
-			else
-#				noinstall=`cd "${depdir}" && make -V NO_INSTALL`
-#				case "${noinstall}" in
-#				yes|YES)
-#					continue
-#					;;
-#				esac
-				echo "${i}: dependency ${pmade} missing!"
+				echo "${i}: run-depends package ${pmade} missing!"
 				move_away ${i}
 				break
 			fi
+			#
+			# find matching port directory (origin)
+			origin_flavors=`run_pkg_info_origin_file "${pkgall}/${pmade}"`
+			origin="${origin_flavors%@*}"
+			flavor=`get_flavor_dir "${origin_flavors}"`
+			mflavor=`get_mflavor "${flavor}"`
+			if test "${origin}" = ""
+			then
+				echo "${i}: missing origin for ${pmade}"
+				move_away ${i}
+				break
+			fi
+			depdir="${portsdir}/${origin}"
+			if test ! -d "${depdir}"
+			then
+				echo "${i}: run-depends package ${pmade} missing ports dir => ${origin}"
+				move_away ${i}
+				break
+			fi
+			pnew=`cd "${depdir}" && make -V PKGFILE ${mflavor}`
+			if test "${pnew}" != "${pkgall}/${pmade}"
+			then
+				echo "${i}: run-depends package ${pmade} is obsolete => ${pnew}"
+				move_away ${i}
+				break
+			fi
+			if test "${pmade}" -nt "${ptarget}"
+			then
+				echo "${i}: run-depends package ${pmade} newer"
+				move_away ${i}
+				break
+			fi
+			#
+			# up to date
 		done
 	done
 	)
@@ -1279,7 +1309,7 @@ clean_package_links() {
 	done
 }
 #
-# check fort obsolte distfiles
+# check for obsolete distfiles
 # Usage: clean_distfiles
 clean_distfiles() {
 	tmp1="/tmp/all-distinfo"
