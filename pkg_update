@@ -177,8 +177,8 @@ add_flavor() {
 }
 
 run_pkg_add() {
-	env ${pkg_env} ${local_env} pkg add "${pkgfile}"
-	installed=`pkg query -e "%o == ${dir}" '%o'`
+	env ${pkg_env} ${local_env} ${pkg} add "${pkgfile}"
+	installed=`${pkg} query -e "%o == ${dir}" '%o'`
 	if test "${installed}" = "${dir}"
 	then
 		return 0
@@ -188,7 +188,7 @@ run_pkg_add() {
 
 run_pkg_installed() {
 	# more then one Flavor can be installed
-	installed=`pkg query -e "%o == ${dir}" '%o' | head -1`
+	installed=`${pkg} query -e "%o == ${dir}" '%o' | head -1`
 	if test "${installed}" = "${dir}"
 	then
 		echo "#installed:	${pkgname} from ${dir}"
@@ -198,7 +198,7 @@ run_pkg_installed() {
 }
 
 run_pkg_match() {
-	required_by=`pkg info --required-by "${origin%@*}" | wc -l`
+	required_by=`${pkg} info --required-by "${origin%@*}" | wc -l`
 	if test "${required_by}" -gt 1
 	then
 #		echo "${origin} (dependency)"
@@ -213,7 +213,7 @@ run_pkg_add_missing() {
 	pkgfile=`make -V PKGFILE`
 	dir="${fulldir##${portsdir}/}"
 	dir="${dir##${localdir}/}"
-	installed=`pkg query -e "%o == ${dir}" '%o'`
+	installed=`${pkg} query -e "%o == ${dir}" '%o'`
 	if test "${installed}" = "${dir}"
 	then
 		return 1
@@ -235,7 +235,7 @@ run_pkg_delete() {
 }
 
 run_pkg_delete_all() {
-	installed=`pkg query -e '%p == /usr/local' '%o'; pkg query -e '%p == /compat/linux' '%o';`
+	installed=`${pkg} query -e '%p == /usr/local' '%o'; ${pkg} query -e '%p == /compat/linux' '%o';`
 	if test "${installed}" = ""
 	then
 		return
@@ -332,6 +332,15 @@ dependency_is_good() {
 	return 3
 }
 
+filter_depends() {
+	if test -f "${depends}"
+	then
+		sed -f "${depends}"
+	else
+		cat
+	fi
+}
+
 # check dependencies and decides if a ports needs to be rebuild
 # Usage: port_uptodate show
 # Usage: port_uptodate make
@@ -396,8 +405,7 @@ port_uptodate() {
 	(
 		env ${pkg_env} make build-depends-list ${mflavor}
 		env ${pkg_env} make package-depends-list ${mflavor} | cut -d " " -f2
-	) |
-	sed -f "${depends}"`
+	) | filter_depends`
 	do
 		fulldir="${depdir_flavors%@*}"
 		flavor=`get_flavor_dir "${depdir_flavors}"`
@@ -1061,7 +1069,7 @@ pkg_info_dependecies()
 # make new package depends list for port
 port_dependencies() {
 	cd "${depdir}" && env ${pkg_env} make ${1} ${mflavor} |
-	sed -f "${depends}" |
+	filter_depends |
 	while read dorigin_flavors
 	do
 		dorigin="${dorigin_flavors%@*}"
@@ -1196,7 +1204,7 @@ clean_package_all() {
 				move_away ${i}
 				break
 			fi
-			echo "${pmade%${ext}}" > "${sfile}"
+			echo "${pmade%${ext}}" >> "${sfile}"
 		done
 		# is the package already moved away?
 		if test ! -f "${i}"
@@ -1728,8 +1736,6 @@ seen="/tmp/deinstall-seen"
 required="/tmp/required-seen"
 inrequired="/tmp/inrequired-seen"
 pkginfo_cache="/var/tmp/pkginfo_cache"
-pkg_prefix="/usr/pkgng"
-pkg_env="PKG_DEPENDS= PKG_PREFIX=${pkg_prefix} PKG_BIN=${pkg_prefix}/sbin/pkg-static"
 #
 #	get all path information from /etc/make.conf
 nowarn="COMMENT=0 CATEGORIES=0 PORTVERSION=0"
@@ -1737,12 +1743,14 @@ portsdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PORTSDIR`
 pkg_dbdir=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_DBDIR`
 packages=`make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PACKAGES`
 defaultdata="${localdir}/data/make-packages.${hostname}"
-if test ! -f "${defaultdata}"
+if test -f "${defaultdata}"
 then
-	pkg="pkg"
+	pkg_prefix="/usr/pkgng"
 else
-	pkg="${pkg_prefix}/sbin/pkg-static"
+	pkg_prefix="/usr/local"
 fi
+pkg="${pkg_prefix}/sbin/pkg-static"
+pkg_env="PKG_DEPENDS= PKG_PREFIX=${pkg_prefix} PKG_BIN=${pkg}"
 #
 target="${1}"
 case "${target}" in
