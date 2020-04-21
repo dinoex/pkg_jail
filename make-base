@@ -236,7 +236,19 @@ delete-old-libs)
 	done
 	;;
 diff)
-	diff -q . HISTORY/ | grep err- | grep -v differ
+	for i in HISTORY/err-*
+	do
+		if ! test -f "${i}"
+		then
+			continue
+		fi
+		j="${i##*/}"
+		if test -f "${j}"
+		then
+			continue
+		fi
+		echo "Only in HISTORY: ${j}"
+	done
 	;;
 ver*)
 	egrep '^(REVISION|BRANCH)' sys/conf/newvers.sh
