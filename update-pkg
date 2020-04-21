@@ -13,7 +13,7 @@ jail_update() {
 	name="${jail##*/}"
 	printf "\n%s:\n" "${name}"
 	jexec "${name}" pkg upgrade
-	jexec "${name}" pkg autoremove -q
+	jexec "${name}" pkg autoremove
 	jexec "${name}" pkg clean -qay
 	jexec "${name}" pkg version -qo -Rl '?'
 	jexec "${name}" pkg annotate -a -S deprecated
@@ -26,7 +26,7 @@ chroot_update() {
 	name="${jail##*/}"
 	printf "\n%s:\n" "${name}"
 	chroot "${jail}" pkg upgrade
-	chroot "${jail}" pkg autoremove -q
+	chroot "${jail}" pkg autoremove
 	chroot "${jail}" pkg clean -qay
 	chroot "${jail}" pkg version -qo -Rl '?'
 	chroot "${jail}" pkg annotate -a -S deprecated
