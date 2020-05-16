@@ -402,10 +402,8 @@ port_uptodate() {
 	fi
 	#
 	for depdir_flavors in `
-	(
-		env ${pkg_env} make build-depends-list ${mflavor}
-		env ${pkg_env} make package-depends-list ${mflavor} | cut -d " " -f2
-	) | filter_depends`
+		env ${pkg_env} make build-depends-list run-depends-list ${mflavor} |
+		filter_depends`
 	do
 		fulldir="${depdir_flavors%@*}"
 		flavor=`get_flavor_dir "${depdir_flavors}"`
