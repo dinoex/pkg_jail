@@ -1,7 +1,7 @@
 #!/bin/sh
 
 pkg upgrade
-pkg autoremove -q
+pkg autoremove
 pkg clean -qay
 pkg version -qo -Rl '?'
 pkg annotate -a -S deprecated
