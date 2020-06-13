@@ -14,8 +14,7 @@ setup_jail5() {
 	if test ! -f "${D}/etc/rc.conf"
 	then
 		echo "$D"
-		( cd /usr/src/etc &&
-		make distribution "DESTDIR=$D" )
+		make distribution "DESTDIR=$D"
 		( cd "${D}"
 		ln -sf dev/null kernel )
 		touch "$D/etc/fstab"
