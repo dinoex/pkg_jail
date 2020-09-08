@@ -1705,6 +1705,7 @@ usage() {
 	echo "    ${0##*/} clean ..." >&2
 	echo "    ${0##*/} check-installed-ports [port]" >&2
 	echo "    ${0##*/} update-ports ..." >&2
+	echo "    ${0##*/} update-jail ..." >&2
 	echo "    ${0##*/} full-update-jail [retry] ..." >&2
 	echo "    ${0##*/} check-update ..." >&2
 	exit 64
@@ -1757,12 +1758,22 @@ update-pkg)
 	update_pkg
 	;;
 repo)
-	shift
 	mv "${packages}/Old" "${packages}-Old"
 	# cleanup leftover repo files
 	rm -fv "${packages}/packagesite.yaml" "${packages}/digests"
 	${pkg} repo "${packages}"
 	mv "${packages}-Old" "${packages}/Old"
+	next_target "${@}"
+	;;
+status)
+	if test -s ${localdir}/make-packages.errlog
+	then
+		tail -10 ${localdir}/make-packages.errlog
+	fi
+	if test -d "${logdir}"
+	then
+		ls -tlr "${logdir}/"err,* | tail -20
+	fi
 	next_target "${@}"
 	;;
 make-packages)
@@ -1783,7 +1794,7 @@ make-packages)
 			make_packages_in_dir "${i}"
 		fi
 	done
-	next_target dummy repo
+	/bin/sh "${0}" repo status
 	;;
 add-packages)
 	shift
@@ -1917,7 +1928,7 @@ clean-packages)
 		clean_package_all
 		clean_package_links
 	)
-	next_target dummy repo
+	/bin/sh "${0}" repo
 	next_target "${@}"
 	;;
 clean-openssl-packages)
@@ -1931,7 +1942,7 @@ clean-openssl-packages)
 		clean_package_openssl
 		clean_package_links
 	)
-	next_target dummy repo
+	/bin/sh "${0}" repo
 	next_target "${@}"
 	;;
 clean-distfiles)
@@ -2142,12 +2153,20 @@ update-ports)
 	(cd ${portsdir} && make update)
 	next_target "${@}"
 	;;
+update-jail)
+	cd ${localdir} || exit 69
+	defaultdata="${localdir}/data/make-packages.${hostname}"
+	#
+	/bin/sh "${0}" clean-packages
+	rm -f "${logdir}/"err,*
+	/bin/sh "${0}" make-packages
+	next_target "${@}"
+	;;
 full-update-jail)
 	cd ${localdir} || exit 69
 	defaultdata="${localdir}/data/make-packages.${hostname}"
 	#
-	shift
-	case "${1}" in
+	case "${2}" in
 	retry)
 		shift
 		;;
@@ -2166,9 +2185,6 @@ check-update)
 	/bin/sh "${0}" show-missing-packages
 	/bin/sh "${0}" show-missing-installed
 	next_target "${@}"
-	;;
-diff)
-	diff -u "${portsdir}/ports-mgmt/pkg_jail/files/pkg_update" "${0}"
 	;;
 *)
 	usage
