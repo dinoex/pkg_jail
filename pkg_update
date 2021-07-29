@@ -1037,6 +1037,12 @@ move_away() {
 	then
 		# move it if the "Old" directory exists.
 		mv -f "${1}" "${pkgold}/${1}"
+		# remove old symlink
+		linked="${1%${ext}}.txz"
+		if test -L "${linked}"
+		then
+			rm -f -v "${linked}"
+		fi
 		file="${1##*/}"
 		saved="${pkginfo_cache}/${file}"
 		if test -f "${saved}"
@@ -1119,8 +1125,13 @@ clean_package_all() {
 		then
 			continue
 		fi
+		# skip all symlinks
+		if test -L "${i}"
+		then
+			continue
+		fi
 		case "${i}" in
-		digests.txz|meta.txz|packagesite.txz)
+		digests.${ext}|meta.${ext}|packagesite.${ext})
 			continue
 			;;
 		esac
