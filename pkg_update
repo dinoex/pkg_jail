@@ -1344,7 +1344,7 @@ clean_distfiles() {
 	if ! test -f "${tmp2}"
 	then
 		echo "Processing ... distfiles"
-		find ${distdir}/ -type f |
+		find ${distdir}/ -name go -prune -o -type f |
 		grep -v "${old}/" |
 		sed -e "s=${distdir}/==" |
 		sort -u > "${tmp2}"
