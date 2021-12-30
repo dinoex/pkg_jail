@@ -57,7 +57,7 @@ install_jail() {
 	fi
 	make "DESTDIR=${D}" installworld >> "err-${HOST}-installjails-${E}" 2>&1 || exit 1
 	setup_jail5 "${D}"
-	make "DESTDIR=${D}" delete-old RM_I="-f -v"
+	make "DESTDIR=${D}" delete-old -DBATCH_DELETE_OLD_FILES
 	setup_mail "${D}"
 }
 
@@ -68,13 +68,26 @@ update)
 		mkdir HISTORY
 	fi
 	mv -vf err* HISTORY/
-	if test -e /usr/local/bin/svn
+	if test -e .svn
 	then
-		svn up | tee "err-${HOST}-${target}" 2>&1 || exit 1
-	else
-		svnlite up | tee "err-${HOST}-${target}" 2>&1 || exit 1
+		if test -e /usr/local/bin/svn
+		then
+			svn up | tee "err-${HOST}-${target}" 2>&1 || exit 1
+		else
+			svnlite up | tee "err-${HOST}-${target}" 2>&1 || exit 1
+		fi
+		echo "ok"
 	fi
-	echo "ok"
+	if test -e .git
+	then
+		if test -e /usr/local/bin/git
+		then
+			git pull up | tee "err-${HOST}-${target}" 2>&1 || exit 1
+		else
+			gitlite up | tee "err-${HOST}-${target}" 2>&1 || exit 1
+		fi
+		echo "ok"
+	fi
 	;;
 buildworld)
 	case "${1}" in
@@ -139,7 +152,7 @@ installkernel)
 installworld)
 	make "${target}" "${@}" >> "err-${HOST}-${target}" 2>&1 || exit 1
 	echo "ok"
-	make delete-old RM_I="-f -v" "${@}"
+	make delete-old -DBATCH_DELETE_OLD_FILES "${@}"
 	( cd /etc/mail && make )
 	( cd /etc/mail && make install )
 	;;
@@ -177,6 +190,7 @@ installall)
 	${0} installjails "${@}" || exit 1
 	;;
 mergemaster)
+	# etcupdate
 	mergemaster -U -F -i "${@}"
 	while test $# -gt 0
 	do
@@ -215,8 +229,8 @@ mergemasterall)
 	${0} mergemasterjails "${@}" || exit 1
 	;;
 delete-old-libs)
-	make delete-old RM_I="-f -v" "${@}"
-	make delete-old-libs "${@}"
+	make delete-old -DBATCH_DELETE_OLD_FILES "${@}"
+	make delete-old-libs -DBATCH_DELETE_OLD_FILES "${@}"
 	if test -e "jails-${HOST}.libs"
 	then
 		listfile="jails-${HOST}.libs"
@@ -230,8 +244,8 @@ delete-old-libs)
 	for D in `grep -v "^#" "${listfile}"`
 	do
 		echo "${D}"
-		make "DESTDIR=${D}" delete-old RM_I="-f -v" "${@}"
-		make "DESTDIR=${D}" delete-old-libs "${@}"
+		make "DESTDIR=${D}" delete-old -DBATCH_DELETE_OLD_FILES "${@}"
+		make "DESTDIR=${D}" delete-old-libs -DBATCH_DELETE_OLD_FILES "${@}"
 	done
 	;;
 diff)
