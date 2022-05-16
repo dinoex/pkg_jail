@@ -526,9 +526,18 @@ port_uptodate() {
 		then
 			mkdir -p "${prefix}"
 		fi
-		echo "cd ${base} && env ${pkg_env} ${local_env} make package ${mflavor} > ${logdir}/err,${log} 2>&1"
 		case "${1}" in
 		make*)
+			if test -e "${logdir}/err,${log}"
+			then
+				echo "=====================================" >&2
+				echo "=== package ${pkgname} had failed build" >&2
+				echo "=====================================" >&2
+				echo "=== package ${pkgname} had failed build" \
+					>> ${logdir}/err,${log}
+				return 2
+			fi
+			echo "cd ${base} && env ${pkg_env} ${local_env} make package ${mflavor} >> ${logdir}/err,${log} 2>&1"
 			( cd "${base}" && env ${pkg_env} ${local_env} make package ${mflavor} </dev/null >> "${logdir}/err,${log}" 2>&1 )
 			pkgfile=`cd "${base}" && make -V PKGFILE ${mflavor}`
 			if test -e "${pkgfile}"
@@ -1361,6 +1370,10 @@ clean_distfiles() {
 			echo \
 			mkdir -p "${old}${dir}"
 			mkdir -p "${old}${dir}"
+		fi
+		if test -d "${distdir}/${name}"
+		then
+			continue
 		fi
 		if test -f "${old}/${name}"
 		then
