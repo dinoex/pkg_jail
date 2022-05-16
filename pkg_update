@@ -1773,7 +1773,7 @@ else
 	pkg_prefix="/usr/local"
 fi
 pkg="${pkg_prefix}/sbin/pkg-static"
-pkg_env="PKG_DEPENDS= PKG_PREFIX=${pkg_prefix} PKG_BIN=${pkg}"
+pkg_env="PKG_DEPENDS= PKG_PREFIX=${pkg_prefix} PKG_BIN=${pkg} PKG_TRIGGERS_DIR=/usr/local/share/pkg/triggers"
 #
 target="${1}"
 case "${target}" in
