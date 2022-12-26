@@ -82,7 +82,7 @@ update)
 	then
 		if test -e /usr/local/bin/git
 		then
-			git pull up | tee "err-${HOST}-${target}" 2>&1 || exit 1
+			git pull | tee "err-${HOST}-${target}" 2>&1 || exit 1
 		else
 			gitlite up | tee "err-${HOST}-${target}" 2>&1 || exit 1
 		fi
