@@ -247,7 +247,7 @@ run_pkg_delete() {
 }
 
 run_pkg_delete_all() {
-	installed="$(${pkg} query -e '%p == /usr/local' '%o'; ${pkg} query -e '%p == /compat/linux' '%o';)"
+	installed="$(${pkg} query -e '%p == /usr/local' '%o'; ${pkg} query -e '%p == /compat/linux' '%o'; ${pkg} query -e '%p ~ /usr/local/*' '%o';)"
 	if test "${installed}" = ""
 	then
 		return
@@ -1690,6 +1690,29 @@ check_update_pkg() {
 		pkgname="$(cd "${portsdir}/ports-mgmt/pkg" && make PKGNAMESUFFIX=-pkgng -V PKGNAME)"
 		if test "${old}" = "${pkgname}"
 		then
+			if test ! -L /usr/sbin/pkg
+			then
+				mv -f /usr/sbin/pkg /usr/sbin/pkg.orig
+				ln -s "${pkg}" /usr/sbin/pkg
+			fi
+			return
+		fi
+		ext="$(make -f /usr/share/mk/bsd.port.mk ${nowarn} -V PKG_SUFX)"
+		pkgfile="${portsdir}/All/${pkgname}${ext}"
+		if test -f "${pkgfile}"
+		then
+			env "PKG_DBDIR=/var/db/pkgng" ${pkg} add "${pkgfile}"
+			if test ! -L /usr/sbin/pkg
+			then
+				mv -f /usr/sbin/pkg /usr/sbin/pkg.orig
+				ln -s "${pkg}" /usr/sbin/pkg
+			fi
+			return
+		fi
+		pkgfile="${portsdir}/Old/${pkgname}${ext}"
+		if test -f "${pkgfile}"
+		then
+			env "PKG_DBDIR=/var/db/pkgng" ${pkg} add "${pkgfile}"
 			if test ! -L /usr/sbin/pkg
 			then
 				mv -f /usr/sbin/pkg /usr/sbin/pkg.orig
