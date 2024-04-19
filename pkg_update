@@ -1737,6 +1737,33 @@ check_buildjail() {
 	fi
 }
 #
+# check that portsnap is installed when needed
+check_portsnap () {
+	if test ! -e "${portsdir}/.portsnap.INDEX"
+	then
+		# not needed
+		return
+	fi
+	if test -e /usr/sbin/portsnap
+	then
+		# present in base
+		return
+	fi
+	get_pkgfile_dir "${portsdir}/ports-mgmt/portsnap"
+	if ! test -e "${pkgfile}"
+	then
+		make_packages_in_dir "ports-mgmt/portsnap"
+	fi
+	if test -e "${pkgfile}"
+	then
+		# try up to date package
+		env ${pkg_env} ${local_env} ${pkg} add "${pkgfile}"
+		return
+	fi
+	echo "Failed to install portsnap" >&2
+	return
+}
+#
 # inform usage
 usage() {
 	echo "Usage:" >&2
@@ -2212,6 +2239,7 @@ check-installed-ports)
 	rm -f "${tmp1}" "${tmp2}"
 	;;
 update-ports)
+	check_portsnap
 	(cd ${portsdir} && make update)
 	next_target "${@}"
 	;;
