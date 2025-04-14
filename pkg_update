@@ -261,9 +261,9 @@ run_pkg_info_installed() {
 }
 
 run_pkg_info_origin_file() {
+	porigin="$(${pkg} info -q -o -F "${1}")"
 	pflavor="$(${pkg} info -q --annotations -F "${1}" | grep "^flavor")"
 	pflavor="${pflavor##flavor*: }"
-	porigin="$(${pkg} info -q -o -F "${1}")"
 	if test "${pflavor}" = ""
 	then
 		echo "${porigin}"
@@ -273,9 +273,9 @@ run_pkg_info_origin_file() {
 }
 
 run_pkg_info_origin_name() {
+	porigin="$(${pkg} info -q -o "${1}")"
 	pflavor="$(${pkg} info -q --annotations "${1}" | grep "^flavor")"
 	pflavor="${pflavor##flavor*: }"
-	porigin="$(${pkg} info -q -o "${1}")"
 	if test "${pflavor}" = ""
 	then
 		echo "${porigin}"
@@ -289,10 +289,10 @@ run_pkg_info_options() {
 }
 
 run_pkg_info_origin_all() {
-	${pkg} info -a -q |
+	${pkg} query -e '%a = 0' "%o" |
 	while read name
 	do
-	run_pkg_info_origin_name "${name}"
+		run_pkg_info_origin_name "${name}"
 	done
 }
 
@@ -421,6 +421,7 @@ port_uptodate() {
 		fulldir="${depdir_flavors%@*}"
 		flavor="$(get_flavor_dir "${depdir_flavors}")"
 		mflavor="$(get_mflavor "${flavor}")"
+		add_flavor="$(add_flavor ${flavor})"
 		dir=""
 		pkgname=""
 		pkgfile=""
@@ -661,13 +662,23 @@ make_packages_in_dir() {
 		echo "# checking: ${dir} ${main_flavor}"
 		cd "${dir}" || return 69
 
+		add_flavor="$(add_flavor ${main_flavor})"
+		odir="${dir##${portsdir}/}"
+		odir="${odir##${localdir}/}"
+		log="$(echo "${odir}${add_flavor}" | sed -e 's=/=,=g')"
+		if test -e "${logdir}/err,${log}"
+		then
+			echo "# skipping: err,${log}"
+			return 69
+		fi
+
 		wrkdir="$(make -V WRKDIRPREFIX)"
 		prefix="/usr/local"
 		if ! test "${wrkdir}" = ""
 		then
 			rm -rf "${wrkdir}"/*
 			run_pkg_delete_all
-			rm -rf "${prefix}"/*
+			rm -rf "${prefix}"/* "${prefix}"/.pkgtemp*
 		fi
 
 		port_uptodate show ${main_flavor} > "${tmpshow}"
