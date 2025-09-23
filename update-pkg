@@ -1,5 +1,10 @@
 #!/bin/sh
 
+kmods="$( pkg -vv | grep FreeBSD-kmods )"
+if test "${kmods}" != ""
+then
+	pkg upgrade -r FreeBSD-kmods
+fi
 pkg upgrade
 pkg autoremove
 pkg clean -qay
