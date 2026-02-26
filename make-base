@@ -120,6 +120,22 @@ build)
 	${0} buildworld "${@}" || exit 1
 	${0} buildkernel "${@}" || exit 1
 	;;
+installkernel-pxe)
+	target="${target%-pxe}"
+	listfile="pxe-${HOST}.txt"
+	if test ! -f "${listfile}"
+	then
+		exit 0
+	fi
+	KERNCONF="GENERIC"
+	for D in `grep -v "^#" "${listfile}"`
+	do
+		echo "${D}"
+		E="${D##*/}"
+		make DESTDIR="${D}" KERNCONF="${KERNCONF}" "${target}" "${@}" >> "err-${HOST}-${target}-${E}-${KERNCONF}" 2>&1 || exit 1
+	done
+	echo "${target} ${D} ok"
+	;;
 installkernel)
 	df -k /boot/ | tail -1 |
 	while read mdef mblock mused mfree mdir
@@ -136,19 +152,7 @@ installkernel)
 	fi
 	make "${target}" "${@}" >> "err-${HOST}-${target}-${KERNCONF}" 2>&1 || exit 1
 	echo "${target} ok"
-	listfile="pxe-${HOST}.txt"
-	if test ! -f "${listfile}"
-	then
-		exit 0
-	fi
-	KERNCONF="GENERIC"
-	for D in `grep -v "^#" "${listfile}"`
-	do
-		echo "${D}"
-		E="${D##*/}"
-		make DESTDIR="${D}" KERNCONF="${KERNCONF}" "${target}" "${@}" >> "err-${HOST}-${target}-${E}-${KERNCONF}" 2>&1 || exit 1
-	done
-	echo "${target} ${D} ok"
+	${0} installkernel-pxe "${@}" || exit 1
 	;;
 installworld)
 	make "${target}" "${@}" >> "err-${HOST}-${target}" 2>&1 || exit 1
