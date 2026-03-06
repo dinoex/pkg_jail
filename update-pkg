@@ -5,6 +5,11 @@ if test "${kmods}" != ""
 then
 	pkg upgrade -r FreeBSD-kmods
 fi
+kmods="$( pkg -vv | grep FreeBSD-ports-kmods )"
+if test "${kmods}" != ""
+then
+	pkg upgrade -r FreeBSD-ports-kmods
+fi
 pkg upgrade
 pkg autoremove
 pkg clean -qay
