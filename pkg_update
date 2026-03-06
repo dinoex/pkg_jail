@@ -274,8 +274,7 @@ run_pkg_info_origin_file() {
 
 run_pkg_info_origin_name() {
 	porigin="$(${pkg} info -q -o "${1}")"
-	pflavor="$(${pkg} info -q --annotations "${1}" | grep "^flavor")"
-	pflavor="${pflavor##flavor*: }"
+	pflavor="$(${pkg} annotate -q -S "${1}" 'flavor')"
 	if test "${pflavor}" = ""
 	then
 		echo "${porigin}"
