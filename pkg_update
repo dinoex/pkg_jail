@@ -505,6 +505,7 @@ port_uptodate() {
 	done
 	pkgname="${mainpkg}"
 	mflavor="$(get_mflavor "${2}")"
+	add_flavor="$(add_flavor ${2})"
 	if test -e "${tmpfailed}"
 	then
 		fulldir="$(pwd)"
