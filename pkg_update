@@ -1748,6 +1748,33 @@ check_buildjail() {
 	fi
 }
 #
+# check that git is installed when needed
+check_git () {
+	if test ! -e "${portsdir}/.git"
+	then
+		# not needed
+		return
+	fi
+	if test -e /usr/local/bin/gitup
+	then
+		# installed
+		return
+	fi
+	get_pkgfile_dir "${portsdir}/devel/git" "FLAVOR=tiny"
+	git_pkgfile="${pkgfile}"
+	if ! test -e "${pkgfile}"
+	then
+		make_packages_in_dir "devel/git@tiny"
+	fi
+	if test -e "${git_pkgfile}"
+	then
+		# try up to date package
+		env ${pkg_env} ${local_env} ${pkg} add "${git_pkgfile}"
+		return
+	fi
+	echo "Failed to install git" >&2
+}
+#
 # check that portsnap is installed when needed
 check_portsnap () {
 	if test ! -e "${portsdir}/.portsnap.INDEX"
@@ -2250,6 +2277,7 @@ check-installed-ports)
 	rm -f "${tmp1}" "${tmp2}"
 	;;
 update-ports)
+	check_git
 	check_portsnap
 	(cd ${portsdir} && make update)
 	next_target "${@}"
