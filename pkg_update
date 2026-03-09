@@ -1755,7 +1755,7 @@ check_git () {
 		# not needed
 		return
 	fi
-	if test -e /usr/local/bin/gitup
+	if test -e /usr/local/bin/git
 	then
 		# installed
 		return
