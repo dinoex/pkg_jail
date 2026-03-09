@@ -1748,8 +1748,42 @@ check_buildjail() {
 	fi
 }
 #
+# gitup.conf needs to fixed
+gitup_conf() {
+	sed -i '' -e 's|"ignores"          : \[\],|"ignores"          : \[ "/distfiles", "/packages", "/local", "/current", \],|' '/usr/local/etc/gitup.conf'
+}
+#
+# check that gitup is installed when needed
+check_gitup() {
+	if test ! -e "${portsdir}/.gituprevision"
+	then
+		# not needed
+		return
+	fi
+	if test -e /usr/local/bin/gitup
+	then
+		# installed
+		gitup_conf
+		return
+	fi
+	get_pkgfile_dir "${portsdir}/net/gitup"
+	git_pkgfile="${pkgfile}"
+	if ! test -e "${pkgfile}"
+	then
+		make_packages_in_dir "net/gitup"
+	fi
+	if test -e "${git_pkgfile}"
+	then
+		# try up to date package
+		env ${pkg_env} ${local_env} ${pkg} add "${git_pkgfile}"
+		gitup_conf
+		return
+	fi
+	echo "Failed to install gitup" >&2
+}
+#
 # check that git is installed when needed
-check_git () {
+check_git() {
 	if test ! -e "${portsdir}/.git"
 	then
 		# not needed
@@ -1776,7 +1810,7 @@ check_git () {
 }
 #
 # check that portsnap is installed when needed
-check_portsnap () {
+check_portsnap() {
 	if test ! -e "${portsdir}/.portsnap.INDEX"
 	then
 		# not needed
@@ -2276,10 +2310,19 @@ check-installed-ports)
 	fi
 	rm -f "${tmp1}" "${tmp2}"
 	;;
+check-gitup)
+	check_gitup
+	;;
 update-ports)
+	check_gitup
 	check_git
 	check_portsnap
-	(cd ${portsdir} && make update)
+	if test -e "${portsdir}/.gituprevision"
+	then
+		gitup ports
+	else
+		(cd ${portsdir} && make update)
+	fi
 	next_target "${@}"
 	;;
 update-jail)
