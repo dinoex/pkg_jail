@@ -1673,17 +1673,22 @@ next_target() {
 update_pkg() {
 	if test -f "${pkg}"
 	then
-		${pkg} delete -y -a -f
+		quiet_mkdir "${logdir}"
+		run_pkg_delete_all
 		env "PKG_DBDIR=/var/db/pkgng" ${pkg} delete -y -a -f
 	fi
 	/etc/rc.d/ldconfig start
-	( cd "${portsdir}/ports-mgmt/pkg" && env "FORCE_PKG_REGISTER=yes" "PKG_DBDIR=/var/db/pkgng" make clean deinstall PREFIX=/usr/pkgng PKGNAMESUFFIX=-pkgng package install )
+	log="ports-mgmt,pkg-pkgng"
+	echo "Building: ${log}"
+	( cd "${portsdir}/ports-mgmt/pkg" && env "FORCE_PKG_REGISTER=yes" "PKG_DBDIR=/var/db/pkgng" make clean deinstall PREFIX=/usr/pkgng PKGNAMESUFFIX=-pkgng package install </dev/null > "${logdir}/build,${log}" )
 	if test ! -L /usr/sbin/pkg
 	then
 		mv -f /usr/sbin/pkg /usr/sbin/pkg.orig
 		ln -s "${pkg}" /usr/sbin/pkg
 	fi
-	( cd "${portsdir}/ports-mgmt/pkg" && env "FORCE_PKG_REGISTER=yes" make clean package install )
+	log="ports-mgmt,pkg"
+	echo "Building: ${log}"
+	( cd "${portsdir}/ports-mgmt/pkg" && env "FORCE_PKG_REGISTER=yes" make clean package install </dev/null > "${logdir}/build,${log}" )
 	${pkg} delete -y -f pkg
 }
 #
@@ -1941,8 +1946,8 @@ make-packages)
 	shift
 	check_buildjail
 	check_update_pkg
-	parse_default "${#}"
 	quiet_mkdir "${localdir}/data" "${logdir}"
+	parse_default "${#}"
 	for i in "${@}"
 	do
 		if test -f "${i}"
