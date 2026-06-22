@@ -1,5 +1,5 @@
 #!/bin/sh
-#	$Id$
+#	$Id: pkg_update,v 2.23 2026/06/22 10:50:39 cvs Exp $
 #	$FreeBSD: head/ports-mgmt/pkg_jail/files/pkg_update 465528 2018-03-25 16:57:38Z dinoex $
 #
 # Copyright (c) 2001-2018 by Dirk Meyer. All rights reserved.
