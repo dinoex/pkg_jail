@@ -3,9 +3,21 @@
 prefix="/usr/local"
 cd /root
 
+reverse_lines()
+{
+	case "${action}" in
+	*stop)
+		sed '1!G;h;$!d'
+		;;
+	*)
+		cat
+	esac
+}
+
 service_enabled_filtered()
 {
 	service -e |
+	reverse_lines |
 	while read rc
 	do
 		if test -f "${prefix}/etc/allservice.txt"
@@ -73,7 +85,7 @@ then
 	service_enabled_filtered
 	exit 0
 fi
-
+action="${1}"
 
 service_enabled_filtered |
 while read rc
