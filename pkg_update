@@ -288,7 +288,7 @@ run_pkg_info_options() {
 }
 
 run_pkg_info_origin_all() {
-	${pkg} query -e '%a = 0' "%o" |
+	${pkg} query -e '%a = 0 && %p != /' "%o" |
 	while read name
 	do
 		run_pkg_info_origin_name "${name}"
